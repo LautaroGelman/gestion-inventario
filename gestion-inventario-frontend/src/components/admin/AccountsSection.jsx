@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-// 1. IMPORTACIÓN CORREGIDA:
-//    Importamos las funciones específicas que necesitamos.
+// La ruta de importación `../../services/api` es correcta desde esta ubicación.
 import { activateClient, deactivateClient } from '../../services/api';
 import './AccountsSection.css';
 
-// El componente ahora recibe 'initialAccounts' como una prop.
 function AccountsSection({ initialAccounts, onUpdate }) {
     const [accounts, setAccounts] = useState(initialAccounts);
     const navigate = useNavigate();
@@ -16,14 +14,11 @@ function AccountsSection({ initialAccounts, onUpdate }) {
 
     const handleToggleStatus = async (accountId, currentStatus) => {
         try {
-            // 2. LLAMADA A LA API CORREGIDA:
-            //    Usamos las funciones específicas en lugar de construir la URL.
             if (currentStatus === 'ACTIVO') {
                 await deactivateClient(accountId);
             } else {
                 await activateClient(accountId);
             }
-            // Llamamos a la función onUpdate del padre para refrescar la lista.
             onUpdate();
         } catch (err) {
             console.error(`Error al cambiar el estado: ${err.message}`);
@@ -35,7 +30,8 @@ function AccountsSection({ initialAccounts, onUpdate }) {
         <div className="accounts-section">
             <div className="section-header">
                 <h2>Cuentas</h2>
-                <button className="btn-new" onClick={() => navigate('/form-cliente')}>Nueva Cuenta</button>
+                {/* ✅ CORRECCIÓN: Se actualiza la ruta para que coincida con App.jsx */}
+                <button className="btn-new" onClick={() => navigate('/register-client')}>Nueva Cuenta</button>
             </div>
             <table>
                 <thead>
@@ -49,7 +45,6 @@ function AccountsSection({ initialAccounts, onUpdate }) {
                 </tr>
                 </thead>
                 <tbody>
-                {/* Nos aseguramos de que 'accounts' no sea nulo antes de mapear */}
                 {accounts && accounts.map(acc => (
                     <tr key={acc.id}>
                         <td>{acc.name}</td>
@@ -57,9 +52,9 @@ function AccountsSection({ initialAccounts, onUpdate }) {
                         <td>{acc.telefono ?? ''}</td>
                         <td>{acc.plan}</td>
                         <td>
-                                <span className={`status-badge status-${acc.estado.toLowerCase()}`}>
-                                    {acc.estado}
-                                </span>
+                            <span className={`status-badge status-${acc.estado.toLowerCase()}`}>
+                                {acc.estado}
+                            </span>
                         </td>
                         <td>
                             <button

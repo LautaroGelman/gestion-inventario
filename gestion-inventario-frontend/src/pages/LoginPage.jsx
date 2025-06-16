@@ -27,22 +27,19 @@ function LoginPage() {
         setError('');
 
         try {
-            // 2. LLAMADA A LA API CORREGIDA:
-            //    Usamos la nueva función 'apiLogin' y le pasamos las credenciales.
-            //    Ya no construimos la URL aquí.
+            // La llamada a la API devuelve { data: { token: '...' } }
             const response = await apiLogin({ username, password });
 
-            // El backend nos devuelve un objeto con { token, username, role, clientId }
-            const userData = response.data;
+            // Extraemos el string del token de la respuesta.
+            const token = response.data?.token;
 
-            if (!userData || !userData.token) {
-                throw new Error('No se recibió una respuesta válida del servidor.');
+            if (!token) {
+                throw new Error('No se recibió un token válido del servidor.');
             }
 
-            // 3. CONTEXTO ACTUALIZADO:
-            //    Llamamos a la función 'login' del AuthContext con todos los datos
-            //    del usuario, no solo el token.
-            login(userData);
+            // ✅ CORRECCIÓN DEFINITIVA:
+            // Pasamos únicamente el STRING del token a la función de login del contexto.
+            login(token);
 
         } catch (err) {
             const errorMessage = err.response?.data?.message || err.message || 'Error al iniciar sesión. Revisa tus credenciales.';

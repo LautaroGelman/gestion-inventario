@@ -20,12 +20,20 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const login = (token) => {
+        // ---- INICIO DEL CÓDIGO DE DEPURACIÓN ----
+        console.log('%cPASO 1: AuthContext recibe el token', 'color: lightblue; font-size: 14px;', token);
+        // ---- FIN DEL CÓDIGO DE DEPURACIÓN ----
         try {
             const decodedUser = jwtDecode(token);
+            // ---- INICIO DEL CÓDIGO DE DEPURACIÓN ----
+            console.log('%cPASO 2: Token decodificado exitosamente', 'color: #a2e0a2; font-size: 14px;', decodedUser);
+            // ---- FIN DEL CÓDIGO DE DEPURACIÓN ----
             localStorage.setItem('token', token);
             setUser(decodedUser);
         } catch (error) {
-            console.error("Error al decodificar el token", error);
+            // ---- INICIO DEL CÓDIGO DE DEPURACIÓN ----
+            console.error('%cERROR: Fallo al decodificar el token en AuthContext', 'color: red; font-size: 14px;', error);
+            // ---- FIN DEL CÓDIGO DE DEPURACIÓN ----
         }
     };
 
