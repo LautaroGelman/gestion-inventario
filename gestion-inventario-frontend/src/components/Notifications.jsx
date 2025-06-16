@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { api } from "../services/api";
-import "../components/client/Notifications.css"; // Ruta corregida
+// 1. RUTA DE IMPORTACIÓN CORREGIDA
+import { getAlerts, markAlertAsRead } from "../services/api";
+import { useAuth } from "../context/AuthContext";
+// 2. RUTA CSS CORREGIDA (asumiendo que está en src/components/client/)
+import "./client/Notifications.css";
 
 const BellIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -10,13 +13,16 @@ const BellIcon = () => (
 );
 
 function Notifications() {
+    const { user } = useAuth();
     const [alerts, setAlerts] = useState([]);
     const [showNotifications, setShowNotifications] = useState(false);
 
     useEffect(() => {
+        if (!user?.clientId) return;
+
         const fetchAlerts = async () => {
             try {
-                const response = await api.get('/api/alerts');
+                const response = await getAlerts(user.clientId);
                 setAlerts(response.data);
             } catch (error) {
                 console.error('Error fetching alerts:', error);
@@ -24,24 +30,25 @@ function Notifications() {
         };
 
         fetchAlerts();
-        const interval = setInterval(fetchAlerts, 60000); // Fetch every minute
+        const interval = setInterval(fetchAlerts, 60000);
         return () => clearInterval(interval);
-    }, []);
+    }, [user]);
 
     const toggleNotifications = () => {
         setShowNotifications(!showNotifications);
     };
 
     const markAsRead = async (alertId) => {
+        if (!user?.clientId) return;
         try {
-            await api.post(`/api/alerts/${alertId}/read`);
-            setAlerts(alerts.filter(alert => alert.id !== alertId));
+            await markAlertAsRead(user.clientId, alertId);
+            setAlerts(prevAlerts => prevAlerts.filter(alert => alert.id !== alertId));
         } catch (error) {
             console.error('Error marking alert as read:', error);
         }
     };
 
-    const unreadAlertCount = alerts.filter(alert => !alert.read).length;
+    const unreadAlertCount = alerts.length;
 
     return (
         <div className="notifications-container">
@@ -55,15 +62,13 @@ function Notifications() {
                 <div className="notifications-dropdown">
                     <h4>Alertas de Stock Bajo</h4>
                     {alerts.length === 0 ? (
-                        <p>No hay alertas en este momento.</p>
+                        <p>No hay alertas nuevas.</p>
                     ) : (
                         <ul>
                             {alerts.map(alert => (
-                                <li key={alert.id} className={alert.read ? 'read' : ''}>
+                                <li key={alert.id}>
                                     <p>{alert.message}</p>
-                                    {!alert.read && (
-                                        <button onClick={() => markAsRead(alert.id)}>Marcar como leído</button>
-                                    )}
+                                    <button onClick={() => markAsRead(alert.id)}>Marcar como leído</button>
                                 </li>
                             ))}
                         </ul>

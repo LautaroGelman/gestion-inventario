@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api } from '../services/api';
+// 1. IMPORTACIONES CORREGIDAS:
+//    Importamos las funciones específicas de la API que necesitamos.
+import { getActiveCashSession, openCashSession, closeCashSession } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 export function useCashSession() {
@@ -11,28 +13,36 @@ export function useCashSession() {
     const isCashier = user?.role === 'CAJERO' || user?.role === 'MULTIFUNCION';
 
     const checkSession = useCallback(async () => {
-        if (!isCashier) return;
+        // Nos aseguramos de tener el rol y el clientId antes de actuar
+        if (!isCashier || !user?.clientId) return;
+
         try {
-            const response = await api.get('/api/cash-sessions/current');
+            // 2. LLAMADA GET CORREGIDA:
+            const response = await getActiveCashSession(user.clientId);
             if (response.status === 200 && response.data) {
                 setSession(response.data);
-            } else {
+            }
+        } catch (error) {
+            // Si hay un error (ej. 404 Not Found), asumimos que no hay sesión abierta
+            if (error.response && error.response.status === 404) {
                 setSession(null);
                 setModalMode('open');
                 setModalOpen(true); // Forzar apertura de caja si no hay sesión
+            } else {
+                console.error("Error checking cash session:", error);
             }
-        } catch (error) {
-            console.error("Error checking cash session:", error);
         }
-    }, [isCashier]);
+    }, [isCashier, user?.clientId]); // Dependemos del clientId del usuario
 
     useEffect(() => {
         checkSession();
     }, [checkSession]);
 
     const handleOpenSession = async (initialAmount) => {
+        if (!user?.clientId) return;
         try {
-            const response = await api.post('/api/cash-sessions/open', { initialAmount });
+            // El backend DTO espera 'initialBalance'
+            const response = await openCashSession(user.clientId, initialAmount);
             setSession(response.data);
             setModalOpen(false);
         } catch (error) {
@@ -42,8 +52,10 @@ export function useCashSession() {
     };
 
     const handleCloseSession = async (countedAmount) => {
+        if (!user?.clientId) return;
         try {
-            const response = await api.post('/api/cash-sessions/close', { countedAmount });
+            // El backend DTO espera 'finalBalance'
+            const response = await closeCashSession(user.clientId, countedAmount);
             const closedSession = response.data;
             alert(`Caja cerrada. Diferencia: $${closedSession.difference.toFixed(2)}`);
             setSession(null);

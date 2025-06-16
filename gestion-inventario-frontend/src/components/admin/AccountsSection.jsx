@@ -1,31 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../../services/api';
+// 1. IMPORTACIÓN CORREGIDA:
+//    Importamos las funciones específicas que necesitamos.
+import { activateClient, deactivateClient } from '../../services/api';
 import './AccountsSection.css';
 
-// El componente ahora recibe 'initialAccounts' como una prop
+// El componente ahora recibe 'initialAccounts' como una prop.
 function AccountsSection({ initialAccounts, onUpdate }) {
     const [accounts, setAccounts] = useState(initialAccounts);
     const navigate = useNavigate();
 
-    // useEffect para actualizar la lista si la prop cambia
     useEffect(() => {
         setAccounts(initialAccounts);
     }, [initialAccounts]);
 
-
     const handleToggleStatus = async (accountId, currentStatus) => {
-        const action = currentStatus === 'ACTIVO' ? 'inactive' : 'activate';
         try {
-            await api.patch(`/admin/clients/${accountId}/${action}`, {});
-            // En lugar de modificar el estado local, llamamos a la función onUpdate del padre
+            // 2. LLAMADA A LA API CORREGIDA:
+            //    Usamos las funciones específicas en lugar de construir la URL.
+            if (currentStatus === 'ACTIVO') {
+                await deactivateClient(accountId);
+            } else {
+                await activateClient(accountId);
+            }
+            // Llamamos a la función onUpdate del padre para refrescar la lista.
             onUpdate();
         } catch (err) {
+            console.error(`Error al cambiar el estado: ${err.message}`);
             alert(`Error al cambiar el estado: ${err.message}`);
         }
     };
-
-    // No necesitamos los estados de loading/error aquí porque el padre los maneja
 
     return (
         <div className="accounts-section">
@@ -45,16 +49,17 @@ function AccountsSection({ initialAccounts, onUpdate }) {
                 </tr>
                 </thead>
                 <tbody>
-                {accounts.map(acc => (
+                {/* Nos aseguramos de que 'accounts' no sea nulo antes de mapear */}
+                {accounts && accounts.map(acc => (
                     <tr key={acc.id}>
                         <td>{acc.name}</td>
                         <td>{acc.email}</td>
                         <td>{acc.telefono ?? ''}</td>
                         <td>{acc.plan}</td>
                         <td>
-                <span className={`status-badge status-${acc.estado.toLowerCase()}`}>
-                  {acc.estado}
-                </span>
+                                <span className={`status-badge status-${acc.estado.toLowerCase()}`}>
+                                    {acc.estado}
+                                </span>
                         </td>
                         <td>
                             <button

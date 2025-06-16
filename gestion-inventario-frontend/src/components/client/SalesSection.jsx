@@ -1,37 +1,44 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../../services/api';
+// 1. IMPORTACIONES CORREGIDAS:
+//    Importamos la función específica 'getSales' y el hook de autenticación.
+import { getSales } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import './SalesSection.css';
 
 function SalesSection() {
+    const { user } = useAuth(); // Para obtener el clientId del usuario logueado
     const [sales, setSales] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const navigate = useNavigate();
 
     useEffect(() => {
+        // Nos aseguramos de tener el clientId antes de hacer la llamada
+        if (!user?.clientId) return;
+
         const fetchSales = async () => {
             try {
                 setLoading(true);
-                // El endpoint ahora es /api/sales, protegido por rol
-                const response = await api.get('/api/sales');
+                // 2. LLAMADA A LA API CORREGIDA:
+                //    Usamos la función 'getSales' con el clientId del usuario.
+                const response = await getSales(user.clientId);
                 setSales(response.data);
             } catch (err) {
                 setError(err.response?.data?.message || 'No se pudo cargar el historial de ventas.');
+                console.error("Error fetching sales:", err);
             } finally {
                 setLoading(false);
             }
         };
 
         fetchSales();
-    }, []);
+    }, [user]); // El efecto ahora depende del 'user' para obtener el clientId
 
     const handleNewSale = () => {
-        // La ruta del POS que creamos en el paso anterior
         navigate('/add-sale');
     };
 
-    // Nueva función para manejar la devolución
     const handleReturn = (saleId) => {
         navigate(`/return-sale/${saleId}`);
     };
@@ -57,7 +64,7 @@ function SalesSection() {
                     <th>Cliente</th>
                     <th>Total</th>
                     <th>Fecha</th>
-                    <th>Acciones</th> {/* <-- Nueva columna */}
+                    <th>Acciones</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -69,7 +76,6 @@ function SalesSection() {
                         <td>${sale.totalAmount.toFixed(2)}</td>
                         <td>{new Date(sale.fecha).toLocaleString()}</td>
                         <td>
-                            {/* <-- Nuevo botón de devolución --> */}
                             <button className="btn-action" onClick={() => handleReturn(sale.id)}>
                                 Devolver
                             </button>

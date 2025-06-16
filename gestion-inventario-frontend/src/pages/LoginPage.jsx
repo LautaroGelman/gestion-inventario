@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react'; // 1. Importa useEffect
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../services/api';
+// 1. IMPORTACIÓN CORREGIDA:
+//    Importamos la función 'login' específica desde nuestro servicio de API.
+//    La renombramos a 'apiLogin' para no confundirla con la función 'login' del contexto.
+import { login as apiLogin } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import './LoginPage.css';
 
@@ -9,38 +12,42 @@ function LoginPage() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const navigate = useNavigate();
-    const { user, login } = useAuth(); // 2. Obtén el estado 'user' del contexto
+    // La función 'login' del contexto se usa para guardar el estado de autenticación.
+    const { user, login } = useAuth();
 
-    // 3. Este efecto se ejecutará cada vez que el estado 'user' cambie
     useEffect(() => {
-        // Si el objeto 'user' existe, significa que el inicio de sesión fue exitoso.
         if (user) {
-            // Ahora es seguro navegar. El componente HomeRedirector se encargará
-            // de enviar al usuario al panel correcto (/admin o /panel).
+            // HomeRedirector se encarga de la lógica de redirección.
             navigate('/', { replace: true });
         }
-    }, [user, navigate]); // El efecto depende de 'user' y 'navigate'
+    }, [user, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
         try {
-            const response = await api.post('/api/auth/login', { username, password });
-            const token = response.token;
+            // 2. LLAMADA A LA API CORREGIDA:
+            //    Usamos la nueva función 'apiLogin' y le pasamos las credenciales.
+            //    Ya no construimos la URL aquí.
+            const response = await apiLogin({ username, password });
 
-            if (!token) {
-                throw new Error('No se recibió un token del servidor.');
+            // El backend nos devuelve un objeto con { token, username, role, clientId }
+            const userData = response.data;
+
+            if (!userData || !userData.token) {
+                throw new Error('No se recibió una respuesta válida del servidor.');
             }
 
-            // 4. Llama a login. El hook useEffect se encargará de la navegación.
-            login(token);
+            // 3. CONTEXTO ACTUALIZADO:
+            //    Llamamos a la función 'login' del AuthContext con todos los datos
+            //    del usuario, no solo el token.
+            login(userData);
 
         } catch (err) {
-            // Se mejora un poco el mensaje de error para ser más claro
             const errorMessage = err.response?.data?.message || err.message || 'Error al iniciar sesión. Revisa tus credenciales.';
             setError(errorMessage);
-            console.error(err);
+            console.error("Error en el login:", err);
         }
     };
 

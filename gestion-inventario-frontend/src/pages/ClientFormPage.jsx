@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../services/api';
-import './ClientFormPage.css'; // Crearemos este archivo para los estilos
+// 1. IMPORTACIÓN CORREGIDA:
+//    Importamos la función específica 'createClient' desde la API.
+import { createClient } from '../services/api';
+import './ClientFormPage.css';
 
 function ClientFormPage() {
     const navigate = useNavigate();
@@ -11,7 +13,6 @@ function ClientFormPage() {
         password: '',
         telefono: '',
         plan: 'BASICO', // Valor por defecto
-        estado: 'ACTIVO', // Valor por defecto
     });
     const [error, setError] = useState('');
 
@@ -29,12 +30,15 @@ function ClientFormPage() {
         }
 
         try {
-            await api.post('/admin/clients', formData);
+            // 2. LLAMADA A LA API CORREGIDA:
+            //    Usamos la nueva función 'createClient' y le pasamos los datos del formulario.
+            await createClient(formData);
             alert('Cliente creado con éxito');
-            // Navegamos de vuelta a la sección 'Cuentas' del panel de admin
+            // Navegamos de vuelta a la sección 'Cuentas' del panel de admin.
             navigate('/panel-admin#cuentas');
         } catch (err) {
-            setError(err.message || 'Error al crear el cliente.');
+            setError(err.response?.data?.message || err.message || 'Error al crear el cliente.');
+            console.error("Error al crear cliente:", err);
         }
     };
 
@@ -62,11 +66,7 @@ function ClientFormPage() {
                         <option value="PREMIUM">Premium</option>
                     </select>
 
-                    <label htmlFor="estado">Estado</label>
-                    <select id="estado" name="estado" onChange={handleChange} value={formData.estado}>
-                        <option value="ACTIVO">Activo</option>
-                        <option value="INACTIVO">Inactivo</option>
-                    </select>
+                    {/* El campo 'estado' se elimina del formulario porque es manejado por el backend */}
 
                     {error && <p className="error-message">{error}</p>}
                     <div className="form-actions">

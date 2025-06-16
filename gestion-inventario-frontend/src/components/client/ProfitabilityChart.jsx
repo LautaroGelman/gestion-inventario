@@ -1,78 +1,91 @@
-import React from 'react';
-import { Bar } from 'react-chartjs-2';
-import {
-    Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    LineElement,
-    PointElement,
-    Title,
-    Tooltip,
-    Legend,
-} from 'chart.js';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+// 1. IMPORTACIONES CORREGIDAS:
+//    Importamos la función para obtener ventas y el hook de autenticación.
+import { getSales } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import './SalesSection.css';
 
-// Registramos los componentes de Chart.js que vamos a utilizar
-ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    LineElement,
-    PointElement,
-    Title,
-    Tooltip,
-    Legend
-);
+function SalesSection() {
+    const { user } = useAuth(); // Para obtener el clientId
+    const [sales, setSales] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const navigate = useNavigate();
 
-function ProfitabilityChart({ apiData }) {
-    // Adaptamos los datos de la API al formato que espera el gráfico
-    const chartData = {
-        labels: apiData.map(d => d.date),
-        datasets: [
-            {
-                label: 'Ingresos ($)',
-                data: apiData.map(d => d.revenue),
-                backgroundColor: 'rgba(75, 192, 192, 0.5)',
-                borderColor: 'rgba(75, 192, 192, 1)',
-                borderWidth: 1,
-            },
-            {
-                label: 'Costos ($)',
-                data: apiData.map(d => d.costOfGoods),
-                backgroundColor: 'rgba(255, 99, 132, 0.5)',
-                borderColor: 'rgba(255, 99, 132, 1)',
-                borderWidth: 1,
-            },
-            {
-                label: 'Ganancia ($)',
-                data: apiData.map(d => d.profit),
-                type: 'line', // Este dataset se muestra como una línea sobre las barras
-                borderColor: 'rgba(54, 162, 235, 1)',
-                backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                tension: 0.3,
-                fill: false,
-            },
-        ],
-    };
+    useEffect(() => {
+        // Nos aseguramos de tener el clientId antes de la llamada
+        if (!user?.clientId) return;
 
-    // Opciones de configuración del gráfico
-    const options = {
-        responsive: true,
-        scales: {
-            x: { title: { display: true, text: 'Fecha' } },
-            y: { title: { display: true, text: 'Monto ($)' }, beginAtZero: true },
-        },
-        plugins: {
-            legend: { position: 'top' },
-            title: {
-                display: true,
-                text: 'Análisis de Rentabilidad (Últimos 30 días)',
-                font: { size: 16 }
+        const fetchSales = async () => {
+            try {
+                setLoading(true);
+                // 2. LLAMADA A LA API CORREGIDA:
+                //    Usamos la función getSales con el clientId del usuario.
+                const response = await getSales(user.clientId);
+                setSales(response.data); // La respuesta de Axios está en 'data'
+            } catch (err) {
+                setError(err.response?.data?.message || 'No se pudo cargar el historial de ventas.');
+                console.error("Error fetching sales:", err);
+            } finally {
+                setLoading(false);
             }
-        },
+        };
+
+        fetchSales();
+    }, [user]); // El efecto se dispara cuando el 'user' está disponible
+
+    const handleNewSale = () => {
+        navigate('/add-sale');
     };
 
-    return <Bar options={options} data={chartData} />;
+    const handleReturn = (saleId) => {
+        navigate(`/return-sale/${saleId}`);
+    };
+
+    if (loading) {
+        return <div>Cargando ventas...</div>;
+    }
+
+    if (error) {
+        return <div className="error-message">Error: {error}</div>;
+    }
+
+    return (
+        <div className="sales-section">
+            <div className="section-header">
+                <h2>Ventas</h2>
+                <button className="btn-new" onClick={handleNewSale}>Registrar nueva venta</button>
+            </div>
+            <table>
+                <thead>
+                <tr>
+                    <th>ID Venta</th>
+                    <th>Cliente</th>
+                    <th>Total</th>
+                    <th>Fecha</th>
+                    <th>Acciones</th>
+                </tr>
+                </thead>
+                <tbody>
+                {/* El backend devuelve SaleDto con: id, cliente, totalAmount, fecha */}
+                {sales.map((sale) => (
+                    <tr key={sale.id}>
+                        <td>{sale.id}</td>
+                        <td>{sale.cliente}</td>
+                        <td>${sale.totalAmount.toFixed(2)}</td>
+                        <td>{new Date(sale.fecha).toLocaleString()}</td>
+                        <td>
+                            <button className="btn-action" onClick={() => handleReturn(sale.id)}>
+                                Devolver
+                            </button>
+                        </td>
+                    </tr>
+                ))}
+                </tbody>
+            </table>
+        </div>
+    );
 }
 
-export default ProfitabilityChart;
+export default SalesSection;

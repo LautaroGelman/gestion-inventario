@@ -1,34 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../services/api';
+// 1. IMPORTACIONES CORREGIDAS
+import { getSaleById, createSaleReturn } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import './ReturnFormPage.css';
 
 function ReturnFormPage() {
+    const { user } = useAuth(); // Para obtener el clientId
     const { saleId } = useParams();
     const navigate = useNavigate();
     const [sale, setSale] = useState(null);
-    const [returnItems, setReturnItems] = useState({}); // Objeto para manejar las cantidades a devolver
+    const [returnItems, setReturnItems] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
     useEffect(() => {
-        const fetchSaleDetails = async () => {
-            try {
-                // Suponiendo que tienes un endpoint para obtener una venta por ID
-                const response = await api.get(`/api/sales/${saleId}`);
-                setSale(response.data);
-            } catch (err) {
-                setError('No se pudieron cargar los detalles de la venta.');
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchSaleDetails();
-    }, [saleId]);
+        // Nos aseguramos de tener la información necesaria
+        if (user?.clientId && saleId) {
+            const fetchSaleDetails = async () => {
+                try {
+                    // 2. LLAMADA GET CORREGIDA
+                    //    Nota: Esto fallará hasta que el endpoint GET /sales/{saleId} exista en el backend.
+                    const response = await getSaleById(user.clientId, saleId);
+                    setSale(response.data);
+                } catch (err) {
+                    setError('No se pudieron cargar los detalles de la venta. (El endpoint puede no existir en el backend)');
+                    console.error("Error fetching sale details:", err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            fetchSaleDetails();
+        }
+    }, [saleId, user]);
 
     const handleQuantityChange = (productId, quantity) => {
-        const maxQuantity = sale.items.find(item => item.product.id === productId).cantidad;
-        const newQuantity = Math.max(0, Math.min(quantity, maxQuantity)); // No permitir más de lo comprado ni menos de 0
+        const itemInSale = sale.items.find(item => item.product.id === productId);
+        if (!itemInSale) return;
+
+        const maxQuantity = itemInSale.quantity; // El DTO usa 'quantity'
+        const newQuantity = Math.max(0, Math.min(quantity, maxQuantity));
         setReturnItems(prev => ({
             ...prev,
             [productId]: newQuantity,
@@ -37,6 +48,11 @@ function ReturnFormPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!user?.clientId) {
+            setError('Error de autenticación. No se pudo procesar la devolución.');
+            return;
+        }
+
         const itemsToReturn = Object.entries(returnItems)
             .filter(([, quantity]) => quantity > 0)
             .map(([productId, quantity]) => ({
@@ -50,16 +66,18 @@ function ReturnFormPage() {
         }
 
         const returnRequest = {
-            originalSaleId: saleId,
+            originalSaleId: parseInt(saleId), // Aseguramos que sea número
             items: itemsToReturn,
         };
 
         try {
-            await api.post('/api/returns', returnRequest);
+            // 3. LLAMADA POST CORREGIDA
+            await createSaleReturn(user.clientId, returnRequest);
             alert('Devolución procesada con éxito.');
-            navigate('/client-panel');
+            navigate('/panel-cliente#sales');
         } catch (err) {
             setError(err.response?.data?.message || 'Error al procesar la devolución.');
+            console.error("Error creating return:", err);
         }
     };
 
@@ -67,11 +85,12 @@ function ReturnFormPage() {
     if (error) return <div className="error-message">{error}</div>;
     if (!sale) return <div>Venta no encontrada.</div>;
 
+    // Los DTOs del backend usan 'product.name' y 'quantity'
     return (
         <div className="return-form-container">
             <h2>Procesar Devolución de Venta #{sale.id}</h2>
-            <p><strong>Cliente:</strong> {sale.cliente}</p>
-            <p><strong>Fecha de Venta:</strong> {new Date(sale.fecha).toLocaleString()}</p>
+            <p><strong>Cliente:</strong> {sale.customer}</p>
+            <p><strong>Fecha de Venta:</strong> {new Date(sale.saleDate).toLocaleString()}</p>
 
             <form onSubmit={handleSubmit}>
                 <table className="return-table">
@@ -85,15 +104,15 @@ function ReturnFormPage() {
                     <tbody>
                     {sale.items.map(item => (
                         <tr key={item.product.id}>
-                            <td>{item.product.nombre}</td>
-                            <td>{item.cantidad}</td>
+                            <td>{item.product.name}</td>
+                            <td>{item.quantity}</td>
                             <td>
                                 <input
                                     type="number"
                                     min="0"
-                                    max={item.cantidad}
+                                    max={item.quantity}
                                     value={returnItems[item.product.id] || 0}
-                                    onChange={(e) => handleQuantityChange(item.product.id, parseInt(e.target.value, 10))}
+                                    onChange={(e) => handleQuantityChange(item.product.id, parseInt(e.target.value, 10) || 0)}
                                 />
                             </td>
                         </tr>

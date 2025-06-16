@@ -1,38 +1,49 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '../../services/api';
+// 1. RUTA DE IMPORTACIÓN CORREGIDA:
+//    Cambiamos '../' por '../../' para subir dos niveles y llegar a la carpeta 'src'.
+import { getClientDashboard, getDailySalesSummary, getProfitabilitySummary } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import SalesChart from './SalesChart';
-import ProfitabilityChart from './ProfitabilityChart'; // <-- IMPORTAMOS EL NUEVO GRÁFICO
+import ProfitabilityChart from './ProfitabilityChart';
 import './DashboardSection.css';
 
 function DashboardSection() {
+    const { user } = useAuth();
     const [dashboardData, setDashboardData] = useState(null);
     const [salesChartData, setSalesChartData] = useState(null);
-    const [profitabilityData, setProfitabilityData] = useState(null); // <-- NUEVO ESTADO
+    const [profitabilityData, setProfitabilityData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
     useEffect(() => {
+        if (!user?.clientId) {
+            return;
+        }
+
         const fetchAllData = async () => {
             try {
                 setLoading(true);
-                // Añadimos la tercera llamada a la API a nuestro Promise.all
-                const [dashData, salesData, profitData] = await Promise.all([
-                    api.get('/client/dashboard'),
-                    api.get('/client/sales/summary?days=30'),
-                    api.get('/client/dashboard/profitability-summary?days=30')
+                const [dashResponse, salesResponse, profitResponse] = await Promise.all([
+                    getClientDashboard(user.clientId),
+                    getDailySalesSummary(user.clientId),
+                    getProfitabilitySummary(user.clientId)
                 ]);
-                setDashboardData(dashData);
-                setSalesChartData(salesData);
-                setProfitabilityData(profitData); // <-- GUARDAMOS LOS NUEVOS DATOS
+
+                setDashboardData(dashResponse.data);
+                setSalesChartData(salesResponse.data);
+                setProfitabilityData(profitResponse.data);
+
             } catch (err) {
-                setError(err.message || 'No se pudo cargar la información del dashboard.');
+                setError(err.response?.data?.message || 'No se pudo cargar la información del dashboard.');
+                console.error("Error fetching dashboard data:", err);
+
             } finally {
                 setLoading(false);
             }
         };
 
         fetchAllData();
-    }, []);
+    }, [user]);
 
     if (loading) {
         return <div>Cargando dashboard...</div>;
@@ -52,11 +63,11 @@ function DashboardSection() {
                     <>
                         <div className="dash-card">
                             <h3>Artículos con stock bajo</h3>
-                            <p>{dashboardData.lowStock}</p>
+                            <p>{dashboardData.lowStockItems}</p>
                         </div>
                         <div className="dash-card">
                             <h3>Ventas del día</h3>
-                            <p>{dashboardData.salesToday}</p>
+                            <p>{dashboardData.todaySalesCount}</p>
                         </div>
                     </>
                 )}
@@ -66,8 +77,6 @@ function DashboardSection() {
                 <div className="chart-wrapper">
                     {salesChartData ? <SalesChart apiData={salesChartData} /> : <p>Cargando gráfico de ventas...</p>}
                 </div>
-
-                {/* Reemplazamos el placeholder con el componente real del gráfico de rentabilidad */}
                 <div className="chart-wrapper">
                     {profitabilityData ? <ProfitabilityChart apiData={profitabilityData} /> : <p>Cargando gráfico de rentabilidad...</p>}
                 </div>

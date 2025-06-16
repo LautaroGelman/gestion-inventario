@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './AdminPanelPage.css';
 import AccountsSection from '../components/admin/AccountsSection';
-import AdminDashboard from '../components/admin/AdminDashboard'; // <-- IMPORTAMOS
-import { api } from '../services/api'; // <-- IMPORTAMOS LA API
+import AdminDashboard from '../components/admin/AdminDashboard';
+// 1. IMPORTACIÓN CORREGIDA:
+//    Importamos la función específica 'getClients' que necesita esta página.
+import { getClients } from '../services/api';
 
 function AdminPanelPage() {
     const navigate = useNavigate();
@@ -11,22 +13,24 @@ function AdminPanelPage() {
 
     const [activeSection, setActiveSection] = useState(location.hash.replace('#', '') || 'dashboard');
 
-    // Estados para los datos, carga y error
     const [clientData, setClientData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
     // Función para cargar o recargar todos los datos
-    const fetchData = () => {
+    const fetchData = async () => {
         setLoading(true);
-        api.get('/admin/clients')
-            .then(data => {
-                setClientData(data);
-            })
-            .catch(err => {
-                setError(err.message || 'Error al cargar datos del panel.');
-            })
-            .finally(() => setLoading(false));
+        try {
+            // 2. LLAMADA A LA API CORREGIDA:
+            //    Usamos la nueva función 'getClients'.
+            const response = await getClients();
+            // Axios devuelve los datos dentro de la propiedad 'data'.
+            setClientData(response.data);
+        } catch (err) {
+            setError(err.response?.data?.message || err.message || 'Error al cargar datos del panel.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     // Cargar datos al montar el componente
@@ -41,7 +45,10 @@ function AdminPanelPage() {
     }, [location.hash]);
 
     const handleLogout = () => {
-        localStorage.clear();
+        // Al cerrar sesión, es mejor limpiar solo lo relacionado al usuario
+        // y no todo el localStorage, por si hubiera otros datos.
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
         navigate('/login');
     };
 
@@ -51,17 +58,17 @@ function AdminPanelPage() {
 
     const renderSection = () => {
         if (loading) return <div>Cargando...</div>;
-        if (error) return <div style={{color: 'red'}}>Error: {error}</div>;
-        if (!clientData) return <div>No hay datos disponibles.</div>;
+        if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
 
         switch (activeSection) {
             case 'cuentas':
-                // Pasamos la lista de clientes y la función de recarga como props
-                return <AccountsSection initialAccounts={clientData.clients} onUpdate={fetchData} />;
+                // El backend devuelve { clients: [...] }, así que accedemos a esa propiedad.
+                return <AccountsSection initialAccounts={clientData?.clients} onUpdate={fetchData} />;
             case 'dashboard':
             default:
-                // Pasamos el objeto completo de datos al dashboard
-                return <AdminDashboard dashboardData={clientData} />;
+                // El componente AdminDashboard ahora obtiene sus propios datos,
+                // por lo que no necesita recibir props.
+                return <AdminDashboard />;
         }
     };
 

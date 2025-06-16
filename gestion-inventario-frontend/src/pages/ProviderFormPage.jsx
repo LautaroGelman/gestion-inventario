@@ -1,36 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../services/api';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+// 1. IMPORTACIONES CORREGIDAS:
+//    Importamos la función para añadir proveedores y el hook de autenticación.
+import { addProvider } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 // Reutilizaremos los estilos del formulario de artículos
 import './ArticleFormPage.css';
 
 function ProviderFormPage() {
-    const { providerId } = useParams();
+    const { user } = useAuth(); // Para obtener el clientId
     const navigate = useNavigate();
-    const isEditing = Boolean(providerId);
 
+    // El formulario ahora solo maneja la creación, no la edición.
     const [formData, setFormData] = useState({
         name: '',
         contactInfo: '',
         paymentTerms: '',
     });
     const [error, setError] = useState('');
-    const [loading, setLoading] = useState(isEditing);
-
-    useEffect(() => {
-        if (isEditing) {
-            api.get(`/client/providers/${providerId}`)
-                .then(provider => {
-                    setFormData({
-                        name: provider.name,
-                        contactInfo: provider.contactInfo,
-                        paymentTerms: provider.paymentTerms,
-                    });
-                })
-                .catch(err => setError('No se pudieron cargar los datos del proveedor.'))
-                .finally(() => setLoading(false));
-        }
-    }, [providerId, isEditing]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -39,31 +26,30 @@ function ProviderFormPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!user?.clientId) {
+            setError('No se pudo identificar al cliente. Por favor, recarga la página.');
+            return;
+        }
         setError('');
 
         try {
-            if (isEditing) {
-                await api.put(`/client/providers/${providerId}`, formData);
-                alert('Proveedor actualizado con éxito');
-            } else {
-                await api.post('/client/providers', formData);
-                alert('Proveedor creado con éxito');
-            }
-            // Navegamos de vuelta a la sección correcta usando el HASH
-            navigate('/panel-cliente#proveedores');
+            // 2. LLAMADA A LA API CORREGIDA:
+            //    Usamos la función específica para crear un proveedor.
+            await addProvider(user.clientId, formData);
+            alert('Proveedor creado con éxito');
+            // Navegamos de vuelta a la sección de proveedores en el panel.
+            navigate('/panel-cliente#providers');
         } catch (err) {
-            setError(err.message || 'Error al guardar el proveedor.');
+            setError(err.response?.data?.message || 'Error al guardar el proveedor.');
+            console.error("Error creating provider:", err);
         }
     };
-
-    if (loading) {
-        return <div>Cargando formulario...</div>;
-    }
 
     return (
         <div className="container-form">
             <header className="form-header">
-                <h1>{isEditing ? 'Editar Proveedor' : 'Nuevo Proveedor'}</h1>
+                {/* El título ahora es fijo, ya que solo creamos nuevos. */}
+                <h1>Nuevo Proveedor</h1>
             </header>
             <main>
                 <form id="form-proveedor" onSubmit={handleSubmit}>
@@ -82,7 +68,7 @@ function ProviderFormPage() {
                     {error && <p className="error-message">{error}</p>}
                     <div className="form-actions">
                         <button type="submit" className="btn-submit">Guardar</button>
-                        <button type="button" className="btn-cancel" onClick={() => navigate('/panel-cliente#proveedores')}>Cancelar</button>
+                        <button type="button" className="btn-cancel" onClick={() => navigate('/panel-cliente#providers')}>Cancelar</button>
                     </div>
                 </form>
             </main>
