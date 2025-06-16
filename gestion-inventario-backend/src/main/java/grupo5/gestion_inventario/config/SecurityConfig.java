@@ -2,7 +2,6 @@
 package grupo5.gestion_inventario.config;
 
 import grupo5.gestion_inventario.security.CustomUserDetailsService;
-import grupo5.gestion_inventario.superpanel.service.AdminUserDetailsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,7 +16,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import grupo5.gestion_inventario.config.JwtAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -25,10 +23,7 @@ import grupo5.gestion_inventario.config.JwtAuthenticationFilter;
 public class SecurityConfig {
 
     @Autowired
-    private CustomUserDetailsService employeeService;
-
-    @Autowired
-    private AdminUserDetailsService adminService;
+    private CustomUserDetailsService userDetailsService; // Solo inyectamos el servicio unificado
 
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -43,14 +38,9 @@ public class SecurityConfig {
         AuthenticationManagerBuilder authBuilder =
                 http.getSharedObject(AuthenticationManagerBuilder.class);
 
-        // Provider #1: empleados
+        // Configuramos un único proveedor de autenticación
         authBuilder
-                .userDetailsService(employeeService)
-                .passwordEncoder(passwordEncoder());
-
-        // Provider #2: admins
-        authBuilder
-                .userDetailsService(adminService)
+                .userDetailsService(userDetailsService)
                 .passwordEncoder(passwordEncoder());
 
         return authBuilder.build();
@@ -60,13 +50,15 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
+                .httpBasic(basic -> basic.disable())
                 .authorizeHttpRequests(auth -> auth
+                        // Unificamos las rutas de login y registro
                         .requestMatchers(
-                                "/api/auth/**",      // login empleados
-                                "/superpanel/login", // login admins
+                                "/api/auth/**",
+                                "/superpanel/login", // Puedes mantenerla por si la usas en otro lado
+                                "/api/clients",      // Registro de nuevos clientes
                                 "/actuator/**"
                         ).permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/clients").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess ->

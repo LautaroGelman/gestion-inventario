@@ -1,17 +1,20 @@
 package grupo5.gestion_inventario.config;
 
-import grupo5.gestion_inventario.model.Employee;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Component
 public class JwtUtil {
@@ -22,6 +25,8 @@ public class JwtUtil {
     @Value("${jwt.expiration}")
     private Long expiration;
 
+    // --- MÉTODOS PÚBLICOS ---
+
     public String getUsernameFromToken(String token) {
         return getClaimFromToken(token, Claims::getSubject);
     }
@@ -30,51 +35,57 @@ public class JwtUtil {
         return getClaimFromToken(token, Claims::getExpiration);
     }
 
-    // --- MÉTODO AÑADIDO PARA EXTRAER EL CLIENT ID ---
-    public Long extractClientId(String token) {
-        // Obtenemos el claim 'clientId' y lo convertimos a Long
-        return getClaimFromToken(token, claims -> claims.get("clientId", Long.class));
-    }
-
     public <T> T getClaimFromToken(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = getAllClaimsFromToken(token);
         return claimsResolver.apply(claims);
     }
 
-    private Claims getAllClaimsFromToken(String token) {
-        return Jwts.parser().setSigningKey(secret).parseClaimsJws(token).getBody();
-    }
-
-    private Boolean isTokenExpired(String token) {
-        final Date expiration = getExpirationDateFromToken(token);
-        return expiration.before(new Date());
-    }
-
     public String generateToken(UserDetails userDetails) {
         Map<String, Object> claims = new HashMap<>();
+        String roles = userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.joining(","));
+        claims.put("roles", roles);
         return createToken(claims, userDetails.getUsername());
-    }
-
-    public String generateToken(Employee employee) {
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("role", employee.getRole().name());
-        claims.put("clientId", employee.getClient().getId());
-        claims.put("employeeName", employee.getName());
-        return createToken(claims, employee.getUsername());
-    }
-
-    private String createToken(Map<String, Object> claims, String subject) {
-        return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(subject)
-                .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + expiration * 1000))
-                .signWith(SignatureAlgorithm.HS256, secret)
-                .compact();
     }
 
     public Boolean validateToken(String token, UserDetails userDetails) {
         final String username = getUsernameFromToken(token);
         return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+    }
+
+    // --- MÉTODOS PRIVADOS ---
+
+    private SecretKey getSigningKey() {
+        byte[] keyBytes = this.secret.getBytes(StandardCharsets.UTF_8);
+        return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    private Claims getAllClaimsFromToken(String token) {
+        // CORRECCIÓN: Se usa .build() para obtener el parser configurado.
+        return Jwts.parser()
+                .verifyWith(getSigningKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+    }
+
+    private Boolean isTokenExpired(String token) {
+        final Date expirationDate = getExpirationDateFromToken(token);
+        return expirationDate.before(new Date());
+    }
+
+    private String createToken(Map<String, Object> claims, String subject) {
+        Date now = new Date(System.currentTimeMillis());
+        Date expirationDate = new Date(now.getTime() + expiration * 1000);
+
+        // CORRECCIÓN: El método correcto es setClaims, no claims.
+        return Jwts.builder()
+                .setClaims(claims)
+                .subject(subject)
+                .issuedAt(now)
+                .expiration(expirationDate)
+                .signWith(getSigningKey())
+                .compact();
     }
 }
