@@ -3,27 +3,31 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 function HomeRedirector() {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const navigate = useNavigate();
 
     useEffect(() => {
-        if (user?.roles) {
-            // Si es SUPER_ADMIN, va al panel de administración.
-            if (user.roles.includes('ROLE_SUPER_ADMIN')) {
-                navigate('/admin', { replace: true });
-            }
-            // Si es Cliente o cualquier tipo de Empleado, va al panel de negocio.
-            else if (user.roles.some(role => ['ROLE_CLIENT', 'ROLE_ADMINISTRADOR', 'ROLE_CAJERO', 'ROLE_MULTIFUNCION'].includes(role))) {
-                navigate('/panel', { replace: true });
-            }
-            // Como fallback, si no tiene un rol conocido, vuelve al login.
-            else {
-                navigate('/login', { replace: true });
-            }
+        if (!user) {
+            return;
         }
-    }, [user, navigate]);
 
-    // No renderiza nada, solo redirige.
+        const hasValidRoles = user.roles && Array.isArray(user.roles) && user.roles.length > 0;
+
+        if (hasValidRoles) {
+            if (user.roles.includes('ROLE_ADMIN')) {
+                navigate('/admin', { replace: true });
+            } else if (user.roles.some(role => ['ROLE_CLIENT', 'ROLE_ADMINISTRADOR', 'ROLE_CAJERO', 'ROLE_MULTIFUNCION'].includes(role))) {
+                navigate('/panel', { replace: true });
+            } else {
+                console.error("Usuario con roles desconocidos, cerrando sesión:", user.roles);
+                logout();
+            }
+        } else {
+            console.error("Usuario sin roles válidos, cerrando sesión.");
+            logout();
+        }
+    }, [user, navigate, logout]);
+
     return null;
 }
 

@@ -9,7 +9,7 @@ import grupo5.gestion_inventario.superpanel.model.CustomerAccount;
 import grupo5.gestion_inventario.superpanel.service.CustomerAccountService;
 
 @RestController
-@RequestMapping("/admin/accounts")
+@RequestMapping("/api/admin/accounts")
 public class AdminController {
 
     private final CustomerAccountService service;

@@ -1,24 +1,26 @@
-// src/main/java/grupo5/gestion_inventario/superpanel/controller/GlobalMetricsController.java
 package grupo5.gestion_inventario.superpanel.controller;
 
 import grupo5.gestion_inventario.superpanel.dto.GlobalMetricsDTO;
 import grupo5.gestion_inventario.superpanel.service.GlobalMetricsService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/admin/reports")
+// 👇 CAMBIO AQUÍ: Añade "/api" al principio de la ruta.
+@RequestMapping("/api/superpanel/metrics")
+@PreAuthorize("hasRole('ROLE_ADMIN')")
 public class GlobalMetricsController {
 
-    private final GlobalMetricsService service;
+    @Autowired
+    private GlobalMetricsService metricsService;
 
-    public GlobalMetricsController(GlobalMetricsService service) {
-        this.service = service;
-    }
-
-    /** GET /admin/reports/summary */
-    @GetMapping("/summary")
-    public ResponseEntity<GlobalMetricsDTO> summary() {
-        return ResponseEntity.ok(service.summary());
+    @GetMapping
+    public ResponseEntity<GlobalMetricsDTO> getGlobalMetrics() {
+        GlobalMetricsDTO metrics = metricsService.getGlobalMetrics();
+        return ResponseEntity.ok(metrics);
     }
 }

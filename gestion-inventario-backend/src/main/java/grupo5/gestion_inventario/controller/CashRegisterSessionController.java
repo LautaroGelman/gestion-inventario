@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/cash-sessions")
-@CrossOrigin(origins = "http://localhost:5173")
 @PreAuthorize("hasAnyRole('CAJERO', 'MULTIFUNCION', 'ADMINISTRADOR')") // Protegemos a nivel de clase
 public class CashRegisterSessionController {
 

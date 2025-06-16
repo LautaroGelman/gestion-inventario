@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // 1. Importa useEffect
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -9,7 +9,17 @@ function LoginPage() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const navigate = useNavigate();
-    const { login } = useAuth();
+    const { user, login } = useAuth(); // 2. Obtén el estado 'user' del contexto
+
+    // 3. Este efecto se ejecutará cada vez que el estado 'user' cambie
+    useEffect(() => {
+        // Si el objeto 'user' existe, significa que el inicio de sesión fue exitoso.
+        if (user) {
+            // Ahora es seguro navegar. El componente HomeRedirector se encargará
+            // de enviar al usuario al panel correcto (/admin o /panel).
+            navigate('/', { replace: true });
+        }
+    }, [user, navigate]); // El efecto depende de 'user' y 'navigate'
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -23,13 +33,13 @@ function LoginPage() {
                 throw new Error('No se recibió un token del servidor.');
             }
 
+            // 4. Llama a login. El hook useEffect se encargará de la navegación.
             login(token);
 
-            // CAMBIO CLAVE: Siempre redirige a la raíz.
-            navigate('/', { replace: true });
-
         } catch (err) {
-            setError(err.response?.data?.message || 'Error al iniciar sesión. Revisa tus credenciales.');
+            // Se mejora un poco el mensaje de error para ser más claro
+            const errorMessage = err.response?.data?.message || err.message || 'Error al iniciar sesión. Revisa tus credenciales.';
+            setError(errorMessage);
             console.error(err);
         }
     };

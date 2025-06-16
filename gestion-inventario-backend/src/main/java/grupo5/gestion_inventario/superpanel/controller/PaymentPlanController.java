@@ -9,7 +9,7 @@ import grupo5.gestion_inventario.superpanel.model.PaymentPlan;
 import grupo5.gestion_inventario.superpanel.service.PaymentPlanService;
 
 @RestController
-@RequestMapping("/admin/plans")
+@RequestMapping("/api/admin/plans")
 public class PaymentPlanController {
 
     private final PaymentPlanService service;

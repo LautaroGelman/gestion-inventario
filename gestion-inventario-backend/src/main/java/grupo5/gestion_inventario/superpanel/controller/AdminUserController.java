@@ -14,7 +14,7 @@ import java.util.List;
  * Controlador para gestión de usuarios administradores.
  */
 @RestController
-@RequestMapping(value = "/admin/users", produces = MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/admin/users", produces = MediaType.APPLICATION_JSON_VALUE)
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminUserController {
 

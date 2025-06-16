@@ -9,7 +9,7 @@ import grupo5.gestion_inventario.superpanel.model.NotificationSetting;
 import grupo5.gestion_inventario.superpanel.service.NotificationSettingService;
 
 @RestController
-@RequestMapping("/admin/notifications")
+@RequestMapping("/api/admin/notifications")
 public class NotificationSettingController {
 
     private final NotificationSettingService service;

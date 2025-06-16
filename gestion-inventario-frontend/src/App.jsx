@@ -15,7 +15,6 @@ import ReturnFormPage from './pages/ReturnFormPage';
 import ClientFormPage from './pages/ClientFormPage';
 
 function App() {
-    // Roles para el panel de negocio (Dueño + Empleados)
     const clientPanelRoles = ['ROLE_CLIENT', 'ROLE_ADMINISTRADOR', 'ROLE_CAJERO', 'ROLE_MULTIFUNCION'];
 
     return (
@@ -28,8 +27,9 @@ function App() {
                 <Route path="/" element={<ProtectedRoute><HomeRedirector /></ProtectedRoute>} />
 
                 {/* Panel de Administración (Solo para SUPER_ADMIN) */}
-                <Route path="/admin" element={<ProtectedRoute allowedRoles={['ROLE_SUPER_ADMIN']}><AdminPanelPage /></ProtectedRoute>} />
-                <Route path="/register-client" element={<ProtectedRoute allowedRoles={['ROLE_SUPER_ADMIN']}><ClientFormPage /></ProtectedRoute>} />
+                {/* 👇 CAMBIO AQUÍ: Usamos 'ROLE_ADMIN' en lugar de 'ROLE_SUPER_ADMIN' */}
+                <Route path="/admin" element={<ProtectedRoute allowedRoles={['ROLE_ADMIN']}><AdminPanelPage /></ProtectedRoute>} />
+                <Route path="/register-client" element={<ProtectedRoute allowedRoles={['ROLE_ADMIN']}><ClientFormPage /></ProtectedRoute>} />
 
                 {/* Panel de Negocio (Accesible por Cliente y sus Empleados) */}
                 <Route path="/panel" element={<ProtectedRoute allowedRoles={clientPanelRoles}><ClientPanelPage /></ProtectedRoute>} />

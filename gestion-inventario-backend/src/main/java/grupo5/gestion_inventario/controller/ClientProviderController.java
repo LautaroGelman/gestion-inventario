@@ -15,7 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 
 @RestController
-@RequestMapping("/client/providers")
+@RequestMapping("/api/client/providers")
 public class ClientProviderController {
 
     private final ProviderService providerService;

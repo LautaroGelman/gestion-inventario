@@ -10,7 +10,7 @@ import grupo5.gestion_inventario.clientpanel.model.Expense;
 import grupo5.gestion_inventario.service.ExpenseService;
 
 @RestController
-@RequestMapping("/clients/{clientId}/expenses")
+@RequestMapping("/api/clients/{clientId}/expenses")
 public class ExpenseController {
 
     private final ExpenseService service;

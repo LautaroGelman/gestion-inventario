@@ -14,7 +14,7 @@ import grupo5.gestion_inventario.service.ProviderService;
  * DEL PANEL DE CLIENTE. SE COMENTA PARA EVITAR ERRORES DE COMPILACIÓN.
  */
 @RestController
-@RequestMapping("/clients/{clientId}/providers")
+@RequestMapping("/api/clients/{clientId}/providers")
 public class ProviderController {
 
     /*

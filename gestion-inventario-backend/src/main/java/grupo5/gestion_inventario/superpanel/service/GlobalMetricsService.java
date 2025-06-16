@@ -1,4 +1,3 @@
-// src/main/java/grupo5/gestion_inventario/superpanel/service/GlobalMetricsService.java
 package grupo5.gestion_inventario.superpanel.service;
 
 import grupo5.gestion_inventario.clientpanel.repository.SaleRepository;
@@ -21,7 +20,8 @@ public class GlobalMetricsService {
         this.saleRepo    = saleRepo;
     }
 
-    public GlobalMetricsDTO summary() {
+    // 👇 CAMBIO AQUÍ: Renombrado de "summary" a "getGlobalMetrics" para que coincida con el Controller.
+    public GlobalMetricsDTO getGlobalMetrics() {
         long total    = accountRepo.count();
         long trial    = accountRepo.countByPlanName("FREE_TRIAL");
         long standard = accountRepo.countByPlanName("STANDARD");

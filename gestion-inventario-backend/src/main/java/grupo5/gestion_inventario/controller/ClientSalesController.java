@@ -9,7 +9,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/client/sales")
+@RequestMapping("/api/client/sales")
 public class ClientSalesController {
 
     private final SalesService     salesService;
