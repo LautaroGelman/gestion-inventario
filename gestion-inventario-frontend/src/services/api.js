@@ -22,8 +22,8 @@ const normalize = (ep) => (ep.startsWith('/') ? ep : `/${ep}`);
 async function apiFetch(endpoint, method, body = null) {
     const headers = { 'Content-Type': 'application/json' };
 
-    // JWT en localStorage
-    const token = localStorage.getItem('jwt');
+    // JWT en localStorage (MODIFICADO: la clave ahora es 'token')
+    const token = localStorage.getItem('token');
     if (token) headers.Authorization = `Bearer ${token}`;
 
     // CSRF en cookie (Spring Security, etc.)
@@ -65,6 +65,7 @@ export const api = {
     patch:  (ep, b) => apiFetch(ep, 'PATCH',  b),
     delete: (ep)    => apiFetch(ep, 'DELETE'),
 };
+
 
 /*
 // Lee la URL base de la API desde las variables de entorno

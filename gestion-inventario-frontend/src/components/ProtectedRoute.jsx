@@ -1,23 +1,46 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode'; // Asegúrate de que jwt-decode esté instalado
 
 /**
- * Componente para proteger rutas.
- * Verifica si existe un 'jwt' en localStorage.
- * Si no existe, redirige al usuario a la página de login.
- * Si existe, renderiza el componente hijo que se le pasa.
- * @param {{ children: React.ReactNode }} props
+ * Componente de protección de rutas final y robusto.
+ * Decodifica el token en el momento para evitar "race conditions" con el estado del contexto.
  */
-function ProtectedRoute({ children }) {
-    const token = localStorage.getItem('jwt');
+function ProtectedRoute({ children, allowedRoles }) {
+    const location = useLocation();
+    const token = localStorage.getItem('token'); // Leemos el token directamente
 
+    // 1. Si no hay token, el usuario no ha iniciado sesión.
     if (!token) {
-        // Si no hay token, redirige a la página de login
-        return <Navigate to="/login" replace />;
+        return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    // Si hay token, muestra el contenido de la ruta protegida
-    return children;
+    try {
+        // 2. Decodificamos el token para obtener los datos más actuales.
+        const decodedUser = jwtDecode(token);
+
+        // 3. Si la ruta requiere roles, los verificamos.
+        if (allowedRoles && allowedRoles.length > 0) {
+            const userRoles = decodedUser?.roles || [];
+            const isAuthorized = userRoles.some(role => allowedRoles.includes(role));
+
+            if (!isAuthorized) {
+                // Si el usuario no tiene los roles, lo enviamos a una página de "no autorizado".
+                // Como aún no la hemos creado, lo redirigimos a la raíz,
+                // donde HomeRedirector lo enviará a su panel por defecto (si lo tiene) o al login.
+                return <Navigate to="/" replace />;
+            }
+        }
+
+        // 4. Si todo está en orden, renderiza el componente protegido.
+        return children;
+
+    } catch (error) {
+        // Si el token es inválido o corrupto, lo limpiamos y redirigimos al login.
+        console.error("Token inválido:", error);
+        localStorage.removeItem('token');
+        return <Navigate to="/login" state={{ from: location }} replace />;
+    }
 }
 
 export default ProtectedRoute;

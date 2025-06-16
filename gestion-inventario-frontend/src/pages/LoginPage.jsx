@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { useAuth } from '../context/AuthContext'; // <-- El cambio clave: importamos useAuth
+import { useAuth } from '../context/AuthContext';
 import './LoginPage.css';
 
 function LoginPage() {
@@ -9,40 +9,32 @@ function LoginPage() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const navigate = useNavigate();
-    const { login } = useAuth(); // <-- Obtenemos la función login de nuestro contexto
+    const { login } = useAuth();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
         try {
-            // La llamada a la API es la misma
             const response = await api.post('/api/auth/login', { username, password });
-
-            // Esperamos una respuesta como { "token": "ey..." }
-            const token = response.data.token;
+            const token = response.token;
 
             if (!token) {
                 throw new Error('No se recibió un token del servidor.');
             }
 
-            // !! TODA LA LÓGICA COMPLEJA SE REEMPLAZA POR ESTA LÍNEA !!
-            // La función login() del contexto se encarga de decodificar,
-            // guardar en localStorage y actualizar el estado de la app.
             login(token);
 
-            // Redirigimos al panel principal. El panel decidirá qué mostrar.
-            navigate('/client-panel');
+            // CAMBIO CLAVE: Siempre redirige a la raíz.
+            navigate('/', { replace: true });
 
         } catch (err) {
-            // Mantenemos tu excelente manejo de errores
             setError(err.response?.data?.message || 'Error al iniciar sesión. Revisa tus credenciales.');
             console.error(err);
         }
     };
 
     return (
-        // Tu JSX se mantiene exactamente igual, no es necesario cambiarlo.
         <div className="login-page-container">
             <div className="login-form-container">
                 <h2>Comercializa S.A.</h2>

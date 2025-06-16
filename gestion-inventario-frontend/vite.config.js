@@ -7,16 +7,14 @@ export default defineConfig({
   // ──────────────────────────────────────────────
   // Ajustes de servidor SOLO para npm run dev
   server: {
-    port: 5173,          // <-- puerto fijo
+    port: 5173,
     proxy: {
-      // ← redirige llamadas a /auth/* hacia el backend
-      '/api/auth': {
+      // Redirige TODAS las llamadas /api/* hacia el backend
+      '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
       },
-      /* Si tu API expone otros prefijos (ej. /api, /productos),
-         añade aquí más entradas copiando el mismo patrón. */
     },
   },
 });

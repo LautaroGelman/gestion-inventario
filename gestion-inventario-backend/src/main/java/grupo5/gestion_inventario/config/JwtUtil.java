@@ -1,17 +1,19 @@
 package grupo5.gestion_inventario.config;
 
+import grupo5.gestion_inventario.model.Client;
+import grupo5.gestion_inventario.model.Employee;
+import grupo5.gestion_inventario.superpanel.model.AdminUser;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.SignatureAlgorithm;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
-import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -25,8 +27,6 @@ public class JwtUtil {
     @Value("${jwt.expiration}")
     private Long expiration;
 
-    // --- MÉTODOS PÚBLICOS ---
-
     public String getUsernameFromToken(String token) {
         return getClaimFromToken(token, Claims::getSubject);
     }
@@ -35,57 +35,64 @@ public class JwtUtil {
         return getClaimFromToken(token, Claims::getExpiration);
     }
 
+    public Long extractClientId(String token) {
+        return getClaimFromToken(token, claims -> claims.get("clientId", Long.class));
+    }
+
     public <T> T getClaimFromToken(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = getAllClaimsFromToken(token);
         return claimsResolver.apply(claims);
     }
 
-    public String generateToken(UserDetails userDetails) {
+    private Claims getAllClaimsFromToken(String token) {
+        return Jwts.parserBuilder().setSigningKey(secret).build().parseClaimsJws(token).getBody();
+    }
+
+    private Boolean isTokenExpired(String token) {
+        final Date expiration = getExpirationDateFromToken(token);
+        return expiration.before(new Date());
+    }
+
+    // --- MÉTODOS SOBRECARGADOS PARA GENERAR TOKENS ESPECÍFICOS ---
+
+    // Token para AdminUser
+    public String generateToken(AdminUser admin) {
         Map<String, Object> claims = new HashMap<>();
-        String roles = userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.joining(","));
-        claims.put("roles", roles);
-        return createToken(claims, userDetails.getUsername());
+        claims.put("roles", admin.getRoles());
+        claims.put("username", admin.getUsername());
+        return createToken(claims, admin.getUsername());
+    }
+
+    // Token para Employee
+    public String generateToken(Employee employee) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("roles", employee.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toList()));
+        claims.put("clientId", employee.getClient().getId());
+        claims.put("employeeName", employee.getName());
+        return createToken(claims, employee.getUsername()); // getUsername() devuelve el email
+    }
+
+    // Token para Client
+    public String generateToken(Client client) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("roles", List.of("ROLE_CLIENT"));
+        claims.put("clientId", client.getId());
+        claims.put("clientName", client.getName());
+        return createToken(claims, client.getEmail());
+    }
+
+    private String createToken(Map<String, Object> claims, String subject) {
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(subject)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + expiration * 1000))
+                .signWith(SignatureAlgorithm.HS256, secret)
+                .compact();
     }
 
     public Boolean validateToken(String token, UserDetails userDetails) {
         final String username = getUsernameFromToken(token);
         return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
-    }
-
-    // --- MÉTODOS PRIVADOS ---
-
-    private SecretKey getSigningKey() {
-        byte[] keyBytes = this.secret.getBytes(StandardCharsets.UTF_8);
-        return Keys.hmacShaKeyFor(keyBytes);
-    }
-
-    private Claims getAllClaimsFromToken(String token) {
-        // CORRECCIÓN: Se usa .build() para obtener el parser configurado.
-        return Jwts.parser()
-                .verifyWith(getSigningKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-    }
-
-    private Boolean isTokenExpired(String token) {
-        final Date expirationDate = getExpirationDateFromToken(token);
-        return expirationDate.before(new Date());
-    }
-
-    private String createToken(Map<String, Object> claims, String subject) {
-        Date now = new Date(System.currentTimeMillis());
-        Date expirationDate = new Date(now.getTime() + expiration * 1000);
-
-        // CORRECCIÓN: El método correcto es setClaims, no claims.
-        return Jwts.builder()
-                .setClaims(claims)
-                .subject(subject)
-                .issuedAt(now)
-                .expiration(expirationDate)
-                .signWith(getSigningKey())
-                .compact();
     }
 }

@@ -1,40 +1,44 @@
 import React from 'react';
-import { Route, Routes } from 'react-router-dom'; // Eliminado 'BrowserRouter as Router'
+import { Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import HomeRedirector from './components/HomeRedirector';
+
+// Importación de Páginas
 import LoginPage from './pages/LoginPage';
+import AdminPanelPage from './pages/AdminPanelPage';
 import ClientPanelPage from './pages/ClientPanelPage';
-import AdminPanelPage from './pages/AdminPanelPage'; // Añadido: Asumiendo que esta página existe y se usará en futuras rutas
 import ArticleFormPage from './pages/ArticleFormPage';
-import ProviderFormPage from './pages/ProviderFormPage'; // Añadido: Asumiendo que esta página existe y se usará en futuras rutas
+import ProviderFormPage from './pages/ProviderFormPage';
 import SaleFormPage from './pages/SaleFormPage';
 import ReturnFormPage from './pages/ReturnFormPage';
-import ClientFormPage from './pages/ClientFormPage'; // Añadido: Asumiendo que esta página existe y se usará en futuras rutas
-import ProtectedRoute from './components/ProtectedRoute';
+import ClientFormPage from './pages/ClientFormPage';
 
 function App() {
+    // Roles para el panel de negocio (Dueño + Empleados)
+    const clientPanelRoles = ['ROLE_CLIENT', 'ROLE_ADMINISTRADOR', 'ROLE_CAJERO', 'ROLE_MULTIFUNCION'];
+
     return (
         <AuthProvider>
-            {/* Eliminado <Router>, ya está en main.jsx */}
             <Routes>
+                {/* Rutas Públicas */}
                 <Route path="/login" element={<LoginPage />} />
-                {/* La ruta raíz '/' debería ser la página principal después del login, posiblemente protegida */}
-                <Route path="/" element={<ProtectedRoute allowedRoles={['ADMINISTRADOR', 'CAJERO', 'MULTIFUNCION']}><ClientPanelPage /></ProtectedRoute>} />
 
-                {/* Rutas Protegidas del Client Panel */}
-                {/* La ruta de ClientPanelPage ya está en "/", así que "/client-panel" podría ser redundante a menos que tengas un caso de uso específico para ello. */}
-                {/* Si necesitas una ruta explícita para el panel del cliente, asegúrate de que no cause conflictos con la raíz. Por ahora, lo dejo para ilustrar, pero la raíz ya lo maneja. */}
-                <Route path="/client-panel" element={<ProtectedRoute allowedRoles={['ADMINISTRADOR', 'CAJERO', 'MULTIFUNCION']}><ClientPanelPage /></ProtectedRoute>} />
+                {/* Ruta Raíz Protegida - Redirige al panel correcto */}
+                <Route path="/" element={<ProtectedRoute><HomeRedirector /></ProtectedRoute>} />
 
-                <Route path="/inventory-form/:id?" element={<ProtectedRoute allowedRoles={['ADMINISTRADOR', 'MULTIFUNCION']}><ArticleFormPage /></ProtectedRoute>} />
-                <Route path="/provider-form/:id?" element={<ProtectedRoute allowedRoles={['ADMINISTRADOR', 'MULTIFUNCION']}><ProviderFormPage /></ProtectedRoute>} /> {/* Añadida ruta para proveedores */}
-                <Route path="/sale-form" element={<ProtectedRoute allowedRoles={['ADMINISTRADOR', 'CAJERO', 'MULTIFUNCION']}><SaleFormPage /></ProtectedRoute>} />
-                <Route path="/return-sale/:saleId" element={<ProtectedRoute allowedRoles={['ADMINISTRADOR', 'CAJERO', 'MULTIFUNCION']}><ReturnFormPage /></ProtectedRoute>} />
+                {/* Panel de Administración (Solo para SUPER_ADMIN) */}
+                <Route path="/admin" element={<ProtectedRoute allowedRoles={['ROLE_SUPER_ADMIN']}><AdminPanelPage /></ProtectedRoute>} />
+                <Route path="/register-client" element={<ProtectedRoute allowedRoles={['ROLE_SUPER_ADMIN']}><ClientFormPage /></ProtectedRoute>} />
 
-                {/* Rutas Protegidas del Admin Panel (Super_Admin) */}
-                <Route path="/admin" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><AdminPanelPage /></ProtectedRoute>} />
-                <Route path="/register-client" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><ClientFormPage /></ProtectedRoute>} />
-                {/* Puedes añadir más rutas de administración aquí */}
+                {/* Panel de Negocio (Accesible por Cliente y sus Empleados) */}
+                <Route path="/panel" element={<ProtectedRoute allowedRoles={clientPanelRoles}><ClientPanelPage /></ProtectedRoute>} />
 
+                {/* Sub-rutas del Panel de Negocio con permisos más específicos */}
+                <Route path="/inventory-form/:id?" element={<ProtectedRoute allowedRoles={['ROLE_CLIENT', 'ROLE_ADMINISTRADOR', 'ROLE_MULTIFUNCION']}><ArticleFormPage /></ProtectedRoute>} />
+                <Route path="/provider-form/:id?" element={<ProtectedRoute allowedRoles={['ROLE_CLIENT', 'ROLE_ADMINISTRADOR', 'ROLE_MULTIFUNCION']}><ProviderFormPage /></ProtectedRoute>} />
+                <Route path="/sale-form" element={<ProtectedRoute allowedRoles={['ROLE_CLIENT', 'ROLE_CAJERO', 'ROLE_MULTIFUNCION']}><SaleFormPage /></ProtectedRoute>} />
+                <Route path="/return-sale/:saleId" element={<ProtectedRoute allowedRoles={['ROLE_CLIENT', 'ROLE_CAJERO', 'ROLE_MULTIFUNCION']}><ReturnFormPage /></ProtectedRoute>} />
             </Routes>
         </AuthProvider>
     );
