@@ -1,31 +1,35 @@
 import React, { useState, useEffect } from 'react';
-// ✅ CORRECCIÓN: Se agrega `useLocation` para leer el estado de la navegación.
 import { useNavigate, useLocation } from 'react-router-dom';
-// La ruta de importación `../../services/api` es correcta desde esta ubicación.
 import { activateClient, deactivateClient } from '../../services/api';
 import './AccountsSection.css';
 
+// VOLVEMOS A USAR LOS PROPS: El componente vuelve a recibir los datos de su padre.
 function AccountsSection({ initialAccounts, onUpdate }) {
     const [accounts, setAccounts] = useState(initialAccounts);
     const navigate = useNavigate();
-
-    // ✅ INICIO: Lógica para manejar el mensaje de éxito
     const location = useLocation();
-    const [successMessage, setSuccessMessage] = useState(location.state?.message);
+
+    // LÓGICA DE NOTIFICACIÓN (MANTENIDA): Esto muestra el mensaje de éxito/error.
+    const [notification, setNotification] = useState(null);
 
     useEffect(() => {
-        if (successMessage) {
-            const timer = setTimeout(() => {
-                setSuccessMessage(null);
-                // Limpia el estado para que el mensaje no reaparezca al refrescar
-                window.history.replaceState({}, document.title);
-            }, 5000);
+        // Si hay un mensaje en el estado de la navegación, lo mostramos.
+        if (location.state?.message) {
+            setNotification({
+                message: location.state.message,
+                type: location.state.type || 'info'
+            });
 
+            // Limpiamos el estado para que el mensaje no reaparezca.
+            navigate(location.pathname, { replace: true, state: {} });
+
+            // La notificación desaparece después de 5 segundos.
+            const timer = setTimeout(() => setNotification(null), 5000);
             return () => clearTimeout(timer);
         }
-    }, [successMessage]);
-    // ✅ FIN: Lógica para manejar el mensaje de éxito
+    }, [location, navigate]);
 
+    // LÓGICA ORIGINAL RESTAURADA: Sincroniza el estado con los datos del padre.
     useEffect(() => {
         setAccounts(initialAccounts);
     }, [initialAccounts]);
@@ -37,24 +41,30 @@ function AccountsSection({ initialAccounts, onUpdate }) {
             } else {
                 await activateClient(accountId);
             }
+            // LÓGICA ORIGINAL RESTAURADA: Avisa al padre que actualice los datos.
             onUpdate();
+            // Mostramos una notificación local de éxito para esta acción.
+            setNotification({ message: 'Estado del cliente actualizado.', type: 'success' });
         } catch (err) {
             console.error(`Error al cambiar el estado: ${err.message}`);
-            alert(`Error al cambiar el estado: ${err.message}`);
+            setNotification({ message: `Error al cambiar el estado: ${err.response?.data?.message || err.message}`, type: 'error' });
         }
     };
 
     return (
-        <div className="accounts-section">
+        <div id="cuentas" className="accounts-section admin-section">
             <div className="section-header">
                 <h2>Cuentas</h2>
-                <button className="btn-new" onClick={() => navigate('/register-client')}>Nueva Cuenta</button>
+                {/* ACCESO AL FORMULARIO CORREGIDO: Usamos la ruta definida en tu App.jsx */}
+                <button className="btn-new" onClick={() => navigate('/register-client')}>
+                    + Nueva Cuenta
+                </button>
             </div>
 
-            {/* ✅ CORRECCIÓN: Se añade el contenedor del mensaje de éxito */}
-            {successMessage && (
-                <div className="success-alert">
-                    {successMessage}
+            {/* RENDERIZADO DE NOTIFICACIÓN (MANTENIDO) */}
+            {notification && (
+                <div className={`notification ${notification.type}`}>
+                    {notification.message}
                 </div>
             )}
 
@@ -70,14 +80,15 @@ function AccountsSection({ initialAccounts, onUpdate }) {
                 </tr>
                 </thead>
                 <tbody>
-                {accounts && accounts.map(acc => (
+                {/* VALIDACIÓN MEJORADA: Comprobamos si hay cuentas antes de mapear */}
+                {accounts && accounts.length > 0 ? accounts.map(acc => (
                     <tr key={acc.id}>
                         <td>{acc.name}</td>
                         <td>{acc.email}</td>
-                        <td>{acc.telefono ?? ''}</td>
+                        <td>{acc.telefono ?? 'N/A'}</td>
                         <td>{acc.plan}</td>
                         <td>
-                            <span className={`status-badge status-${acc.estado.toLowerCase()}`}>
+                            <span className={`status-badge status-${acc.estado ? acc.estado.toLowerCase() : 'desconocido'}`}>
                                 {acc.estado}
                             </span>
                         </td>
@@ -90,7 +101,11 @@ function AccountsSection({ initialAccounts, onUpdate }) {
                             </button>
                         </td>
                     </tr>
-                ))}
+                )) : (
+                    <tr>
+                        <td colSpan="6">No hay clientes para mostrar.</td>
+                    </tr>
+                )}
                 </tbody>
             </table>
         </div>

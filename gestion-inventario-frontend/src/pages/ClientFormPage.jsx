@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-// 1. IMPORTACIÓN CORREGIDA:
-//    Importamos la función específica 'createClient' desde la API.
 import { createClient } from '../services/api';
 import './ClientFormPage.css';
 
@@ -12,7 +10,7 @@ function ClientFormPage() {
         email: '',
         password: '',
         telefono: '',
-        plan: 'BASICO', // Valor por defecto
+        plan: 'BASICO',
     });
     const [error, setError] = useState('');
 
@@ -30,10 +28,19 @@ function ClientFormPage() {
         }
 
         try {
-            // 2. LLAMADA A LA API CORREGIDA:
-            //    Usamos la nueva función 'createClient' y le pasamos los datos del formulario.
             await createClient(formData);
-            navigate('/admin/cuentas', { state: { message: 'Cliente creado exitosamente.' } });
+
+            // ✅ CORRECCIÓN DEFINITIVA:
+            // Navegamos a '/admin' y pasamos la sección deseada ('cuentas')
+            // y el mensaje en el objeto 'state'. Es más robusto que usar el hash '#'.
+            navigate('/admin', {
+                state: {
+                    message: 'Cliente creado exitosamente.',
+                    type: 'success',
+                    targetSection: 'cuentas' // Instrucción directa para mostrar la sección de cuentas
+                }
+            });
+
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Error al crear el cliente.');
             console.error("Error al crear cliente:", err);
@@ -64,12 +71,11 @@ function ClientFormPage() {
                         <option value="PREMIUM">Premium</option>
                     </select>
 
-                    {/* El campo 'estado' se elimina del formulario porque es manejado por el backend */}
-
                     {error && <p className="error-message">{error}</p>}
                     <div className="form-actions">
                         <button type="submit">Guardar Cliente</button>
-                        <button type="button" onClick={() => navigate('/panel-admin#cuentas')}>Cancelar</button>
+                        {/* El botón cancelar ahora apunta a la ruta correcta con hash */}
+                        <button type="button" onClick={() => navigate('/admin#cuentas')}>Cancelar</button>
                     </div>
                 </form>
             </main>
