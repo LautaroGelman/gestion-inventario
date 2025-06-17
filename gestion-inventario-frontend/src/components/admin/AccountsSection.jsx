@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+// ✅ CORRECCIÓN: Se agrega `useLocation` para leer el estado de la navegación.
+import { useNavigate, useLocation } from 'react-router-dom';
 // La ruta de importación `../../services/api` es correcta desde esta ubicación.
 import { activateClient, deactivateClient } from '../../services/api';
 import './AccountsSection.css';
@@ -7,6 +8,23 @@ import './AccountsSection.css';
 function AccountsSection({ initialAccounts, onUpdate }) {
     const [accounts, setAccounts] = useState(initialAccounts);
     const navigate = useNavigate();
+
+    // ✅ INICIO: Lógica para manejar el mensaje de éxito
+    const location = useLocation();
+    const [successMessage, setSuccessMessage] = useState(location.state?.message);
+
+    useEffect(() => {
+        if (successMessage) {
+            const timer = setTimeout(() => {
+                setSuccessMessage(null);
+                // Limpia el estado para que el mensaje no reaparezca al refrescar
+                window.history.replaceState({}, document.title);
+            }, 5000);
+
+            return () => clearTimeout(timer);
+        }
+    }, [successMessage]);
+    // ✅ FIN: Lógica para manejar el mensaje de éxito
 
     useEffect(() => {
         setAccounts(initialAccounts);
@@ -30,9 +48,16 @@ function AccountsSection({ initialAccounts, onUpdate }) {
         <div className="accounts-section">
             <div className="section-header">
                 <h2>Cuentas</h2>
-                {/* ✅ CORRECCIÓN: Se actualiza la ruta para que coincida con App.jsx */}
                 <button className="btn-new" onClick={() => navigate('/register-client')}>Nueva Cuenta</button>
             </div>
+
+            {/* ✅ CORRECCIÓN: Se añade el contenedor del mensaje de éxito */}
+            {successMessage && (
+                <div className="success-alert">
+                    {successMessage}
+                </div>
+            )}
+
             <table>
                 <thead>
                 <tr>

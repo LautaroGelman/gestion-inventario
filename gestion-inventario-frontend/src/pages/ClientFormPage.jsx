@@ -33,9 +33,7 @@ function ClientFormPage() {
             // 2. LLAMADA A LA API CORREGIDA:
             //    Usamos la nueva función 'createClient' y le pasamos los datos del formulario.
             await createClient(formData);
-            alert('Cliente creado con éxito');
-            // Navegamos de vuelta a la sección 'Cuentas' del panel de admin.
-            navigate('/panel-admin#cuentas');
+            navigate('/admin/cuentas', { state: { message: 'Cliente creado exitosamente.' } });
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Error al crear el cliente.');
             console.error("Error al crear cliente:", err);

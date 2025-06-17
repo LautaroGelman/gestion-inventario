@@ -37,8 +37,15 @@ public class AdminClientController {
         client.setEmail(     req.getEmail() );
         client.setPasswordHash(passwordEncoder.encode(req.getPassword()));
         client.setTelefono(  req.getTelefono() );
-        client.setPlan(      req.getPlan().toUpperCase());
-        client.setEstado(    req.getEstado().toUpperCase());
+
+        // --- CORRECCIÓN ---
+        // Asignamos un estado por defecto si no se proporciona en la solicitud
+        // para evitar el NullPointerException.
+        String plan = req.getPlan();
+        String estado = req.getEstado();
+
+        client.setPlan(plan != null ? plan.toUpperCase() : "BASICO"); // Asigna BASICO si el plan es nulo
+        client.setEstado(estado != null ? estado.toUpperCase() : "ACTIVO"); // Asigna ACTIVO si el estado es nulo
 
         Client saved = clientService.create(client);
 
