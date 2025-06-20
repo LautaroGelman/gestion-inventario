@@ -42,32 +42,28 @@ const AdminDashboard = () => {
             </header>
             <section className="cards">
                 <div className="card">
-                    <h3>Cuentas de Clientes Activas</h3>
-                    {/* ✅ Se añade "|| 0" para que muestre 0 si el valor no existe */}
-                    <p>{metrics.activeCustomerAccounts || 0}</p>
+                    <h3>Cuentas Totales</h3>
+                    <p>{metrics.totalAccounts || 0}</p>
                 </div>
                 <div className="card">
-                    <h3>Planes de Pago Más Populares</h3>
+                    <h3>Planes de Clientes</h3>
                     <ul>
-                        {/* Tu código aquí ya era seguro, ¡bien hecho! */}
-                        {metrics.mostPopularPaymentPlans && metrics.mostPopularPaymentPlans.length > 0 ? (
-                            metrics.mostPopularPaymentPlans.map((plan, index) => (
-                                <li key={index}>{plan}</li>
-                            ))
-                        ) : (
-                            <li>No hay datos</li>
-                        )}
+                        <li>Prueba Gratis: {metrics.freeTrialAccounts || 0}</li>
+                        <li>Estándar: {metrics.standardAccounts || 0}</li>
+                        <li>Premium: {metrics.premiumAccounts || 0}</li>
                     </ul>
                 </div>
                 <div className="card">
-                    <h3>Ingresos Totales</h3>
-                    {/* ✅ Se protege la llamada a toFixed(2) */}
-                    <p>${(metrics.totalRevenue || 0).toFixed(2)}</p>
+                    <h3>Ingresos (últimos 30 días)</h3>
+                    <p>${metrics.totalRevenueLast30d?.toFixed(2) || '0.00'}</p>
                 </div>
                 <div className="card">
-                    <h3>Usuarios Registrados</h3>
-                    {/* ✅ Se añade "|| 0" para que muestre 0 si el valor no existe */}
-                    <p>{metrics.totalUsers || 0}</p>
+                    <h3>Total de Productos</h3>
+                    <p>{metrics.totalProducts || 0}</p>
+                </div>
+                <div className="card">
+                    <h3>Alertas por Bajo Stock</h3>
+                    <p>{metrics.lowStockAlerts || 0}</p>
                 </div>
             </section>
         </div>

@@ -33,9 +33,31 @@ function AdminPanelPage() {
     }, []);
 
     useEffect(() => {
-        const currentHash = location.hash.replace('#', '');
-        setActiveSection(currentHash || 'dashboard');
-    }, [location.hash]);
+        // Leemos la instrucción que viene del estado de navegación (desde el formulario).
+        const targetSectionInState = location.state?.targetSection;
+        // Leemos la sección que está en el hash de la URL (para la navegación normal).
+        const sectionFromHash = location.hash.replace('#', '');
+
+        // La sección que queremos mostrar es la que viene en el estado, o si no, la del hash.
+        const desiredSection = targetSectionInState || sectionFromHash || 'dashboard';
+
+        // Si la sección que queremos mostrar no es la que ya está activa, la actualizamos.
+        if (activeSection !== desiredSection) {
+            setActiveSection(desiredSection);
+        }
+
+        // ✅ LA CLAVE DE LA SOLUCIÓN:
+        // Si la instrucción vino del estado y todavía no está en el hash de la URL,
+        // la "guardamos" en el hash.
+        if (targetSectionInState && targetSectionInState !== sectionFromHash) {
+            // Usamos navigate para añadir el hash (#cuentas), pero manteniendo el estado
+            // (que contiene el mensaje) para que AccountsSection lo pueda leer.
+            navigate(location.pathname + '#' + targetSectionInState, {
+                replace: true, // No añade una nueva entrada en el historial del navegador.
+                state: location.state, // Mantenemos el estado para que se muestre el mensaje.
+            });
+        }
+    }, [location, navigate, activeSection]);
 
     const handleLogout = () => {
         // Limpiamos el token al cerrar sesión

@@ -33,7 +33,7 @@ function ClientFormPage() {
             // ✅ CORRECCIÓN DEFINITIVA:
             // Navegamos a '/admin' y pasamos la sección deseada ('cuentas')
             // y el mensaje en el objeto 'state'. Es más robusto que usar el hash '#'.
-            navigate('/admin', {
+            navigate('/admin#cuentas', {
                 state: {
                     message: 'Cliente creado exitosamente.',
                     type: 'success',
