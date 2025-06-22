@@ -38,7 +38,9 @@ function ProtectedRoute({ children, allowedRoles }) {
     } catch (error) {
         // Si el token es inválido o corrupto, lo limpiamos y redirigimos al login.
         console.error("Token inválido:", error);
+        // Limpiamos token de localStorage y cookie
         localStorage.removeItem('token');
+        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 }

@@ -1,0 +1,364 @@
+Listado de rutas de carpetas
+El n£mero de serie del volumen es 0000005F 1890:2582
+C:\USERS\LAUTARO\DESKTOP\GESTION-INVENTARIO\GESTION-INVENTARIO-BACKEND
+|   .gitattributes
+|   .gitignore
+|   bd.sql
+|   gestion-inventario.iml
+|   mvnw
+|   mvnw.cmd
+|   pom.xml
+|   
++---.idea
+|       .gitignore
+|       compiler.xml
+|       encodings.xml
+|       gestion-inventario-backend.iml
+|       jarRepositories.xml
+|       misc.xml
+|       vcs.xml
+|       workspace.xml
+|       
++---.mvn
+|   \---wrapper
+|           maven-wrapper.properties
+|           
++---src
+|   +---main
+|   |   +---java
+|   |   |   \---grupo5
+|   |   |       \---gestion_inventario
+|   |   |           |   GestionInventarioApplication.java
+|   |   |           |   
+|   |   |           +---clientpanel
+|   |   |           |   +---dto
+|   |   |           |   |       AdminUserRequest.java
+|   |   |           |   |       AuthRequest.java
+|   |   |           |   |       AuthResponse.java
+|   |   |           |   |       BestSellerDTO.java
+|   |   |           |   |       ClientCreateRequest.java
+|   |   |           |   |       ClientDashboardDto.java
+|   |   |           |   |       ClientListDto.java
+|   |   |           |   |       ClientRowDto.java
+|   |   |           |   |       CloseSessionRequest.java
+|   |   |           |   |       OpenSessionRequest.java
+|   |   |           |   |       ProductDto.java
+|   |   |           |   |       ProductRequest.java
+|   |   |           |   |       ProfitabilitySummaryDto.java
+|   |   |           |   |       ProviderRequest.java
+|   |   |           |   |       PurchaseOrderItemRequest.java
+|   |   |           |   |       PurchaseOrderRequest.java
+|   |   |           |   |       ReturnItemRequest.java
+|   |   |           |   |       SaleDto.java
+|   |   |           |   |       SaleItemRequest.java
+|   |   |           |   |       SaleRequest.java
+|   |   |           |   |       SaleReturnRequest.java
+|   |   |           |   |       SalesByEmployeeDTO.java
+|   |   |           |   |       SalesDailySummaryDto.java
+|   |   |           |   |       
+|   |   |           |   +---model
+|   |   |           |   |       Alert.java
+|   |   |           |   |       CashRegisterSession.java
+|   |   |           |   |       Compra.java
+|   |   |           |   |       CompraItem.java
+|   |   |           |   |       Expense.java
+|   |   |           |   |       Provider.java
+|   |   |           |   |       PurchaseOrder.java
+|   |   |           |   |       PurchaseOrderItem.java
+|   |   |           |   |       Sale.java
+|   |   |           |   |       SaleItem.java
+|   |   |           |   |       SaleReturn.java
+|   |   |           |   |       SaleReturnItem.java
+|   |   |           |   |       StockMovement.java
+|   |   |           |   |       
+|   |   |           |   \---repository
+|   |   |           |           AlertRepository.java
+|   |   |           |           CashRegisterSessionRepository.java
+|   |   |           |           ExpenseRepository.java
+|   |   |           |           ProviderRepository.java
+|   |   |           |           PurchaseOrderItemRepository.java
+|   |   |           |           PurchaseOrderRepository.java
+|   |   |           |           SaleItemRepository.java
+|   |   |           |           SaleRepository.java
+|   |   |           |           SaleReturnRepository.java
+|   |   |           |           StockMovementRepository.java
+|   |   |           |           
+|   |   |           +---config
+|   |   |           |       JwtAuthenticationFilter.java
+|   |   |           |       JwtUtil.java
+|   |   |           |       SecurityConfig.java
+|   |   |           |       
+|   |   |           +---controller
+|   |   |           |       AdminClientController.java
+|   |   |           |       AlertController.java
+|   |   |           |       AuthController.java
+|   |   |           |       CashRegisterSessionController.java
+|   |   |           |       ClientController.java
+|   |   |           |       ClientDashboardController.java
+|   |   |           |       ClientPanelController.java
+|   |   |           |       ClientProviderController.java
+|   |   |           |       ClientSalesController.java
+|   |   |           |       ExpenseController.java
+|   |   |           |       ProductController.java
+|   |   |           |       ProviderController.java
+|   |   |           |       PurchaseOrderController.java
+|   |   |           |       SaleReturnController.java
+|   |   |           |       SalesController.java
+|   |   |           |       SalesMetricsController.java
+|   |   |           |       SpaForwardingController.java
+|   |   |           |       
+|   |   |           +---exception
+|   |   |           |       ApiExceptionHandler.java
+|   |   |           |       
+|   |   |           +---model
+|   |   |           |       Client.java
+|   |   |           |       Employee.java
+|   |   |           |       EmployeeRole.java
+|   |   |           |       Product.java
+|   |   |           |       
+|   |   |           +---repository
+|   |   |           |       ClientRepository.java
+|   |   |           |       EmployeeRepository.java
+|   |   |           |       ProductRepository.java
+|   |   |           |       
+|   |   |           +---security
+|   |   |           |       CustomUserDetailsService.java
+|   |   |           |       
+|   |   |           +---service
+|   |   |           |       CashRegisterSessionService.java
+|   |   |           |       ClientService.java
+|   |   |           |       DataInitializer.java
+|   |   |           |       ExpenseService.java
+|   |   |           |       ProductService.java
+|   |   |           |       ProviderService.java
+|   |   |           |       PurchaseOrderService.java
+|   |   |           |       SaleReturnService.java
+|   |   |           |       SalesService.java
+|   |   |           |       StockAlertScheduler.java
+|   |   |           |       
+|   |   |           \---superpanel
+|   |   |               |   NotificationScheduler.java
+|   |   |               |   PaymentPlanInitializer.java
+|   |   |               |   
+|   |   |               +---controller
+|   |   |               |       AdminController.java
+|   |   |               |       AdminUserController.java
+|   |   |               |       GlobalMetricsController.java
+|   |   |               |       NotificationSettingController.java
+|   |   |               |       PaymentPlanController.java
+|   |   |               |       
+|   |   |               +---dto
+|   |   |               |       GlobalMetricsDTO.java
+|   |   |               |       
+|   |   |               +---model
+|   |   |               |       AdminUser.java
+|   |   |               |       CustomerAccount.java
+|   |   |               |       NotificationSetting.java
+|   |   |               |       PaymentPlan.java
+|   |   |               |       
+|   |   |               +---repository
+|   |   |               |       AdminUserRepository.java
+|   |   |               |       CustomerAccountRepository.java
+|   |   |               |       NotificationSettingRepository.java
+|   |   |               |       PaymentPlanRepository.java
+|   |   |               |       
+|   |   |               \---service
+|   |   |                       AdminUserService.java
+|   |   |                       CustomerAccountService.java
+|   |   |                       GlobalMetricsService.java
+|   |   |                       NotificationSettingService.java
+|   |   |                       PaymentPlanService.java
+|   |   |                       
+|   |   \---resources
+|   |           application.properties
+|   |           application.properties.bak
+|   |           
+|   \---test
+|       +---java
+|       |   \---grupo5
+|       |       \---gestion_inventario
+|       |               GestionInventarioApplicationTests.java
+|       |               
+|       \---resources
+|               application.properties
+|               
+\---target
+    |   gestion-inventario-0.0.1-SNAPSHOT.jar
+    |   gestion-inventario-0.0.1-SNAPSHOT.jar.original
+    |   
+    +---classes
+    |   |   application.properties
+    |   |   application.properties.bak
+    |   |   
+    |   \---grupo5
+    |       \---gestion_inventario
+    |           |   GestionInventarioApplication.class
+    |           |   
+    |           +---clientpanel
+    |           |   +---dto
+    |           |   |       AdminUserRequest.class
+    |           |   |       AuthRequest.class
+    |           |   |       AuthResponse.class
+    |           |   |       BestSellerDTO.class
+    |           |   |       ClientCreateRequest.class
+    |           |   |       ClientDashboardDto.class
+    |           |   |       ClientListDto.class
+    |           |   |       ClientRowDto.class
+    |           |   |       CloseSessionRequest.class
+    |           |   |       OpenSessionRequest.class
+    |           |   |       ProductDto.class
+    |           |   |       ProductRequest.class
+    |           |   |       ProfitabilitySummaryDto.class
+    |           |   |       ProviderRequest.class
+    |           |   |       PurchaseOrderItemRequest.class
+    |           |   |       PurchaseOrderRequest.class
+    |           |   |       ReturnItemRequest.class
+    |           |   |       SaleDto.class
+    |           |   |       SaleItemRequest.class
+    |           |   |       SaleRequest.class
+    |           |   |       SaleReturnRequest.class
+    |           |   |       SalesByEmployeeDTO.class
+    |           |   |       SalesDailySummaryDto.class
+    |           |   |       
+    |           |   +---model
+    |           |   |       Alert.class
+    |           |   |       CashRegisterSession.class
+    |           |   |       Compra.class
+    |           |   |       CompraItem.class
+    |           |   |       Expense.class
+    |           |   |       Provider.class
+    |           |   |       PurchaseOrder$PurchaseOrderStatus.class
+    |           |   |       PurchaseOrder.class
+    |           |   |       PurchaseOrderItem.class
+    |           |   |       Sale.class
+    |           |   |       SaleItem.class
+    |           |   |       SaleReturn.class
+    |           |   |       SaleReturnItem.class
+    |           |   |       StockMovement$StockMovementType.class
+    |           |   |       StockMovement.class
+    |           |   |       
+    |           |   \---repository
+    |           |           AlertRepository.class
+    |           |           CashRegisterSessionRepository.class
+    |           |           ExpenseRepository.class
+    |           |           ProviderRepository.class
+    |           |           PurchaseOrderItemRepository.class
+    |           |           PurchaseOrderRepository.class
+    |           |           SaleItemRepository.class
+    |           |           SaleRepository.class
+    |           |           SaleReturnRepository.class
+    |           |           StockMovementRepository.class
+    |           |           
+    |           +---config
+    |           |       JwtAuthenticationFilter.class
+    |           |       JwtUtil.class
+    |           |       SecurityConfig.class
+    |           |       
+    |           +---controller
+    |           |       AdminClientController.class
+    |           |       AlertController.class
+    |           |       AuthController.class
+    |           |       CashRegisterSessionController.class
+    |           |       ClientDashboardController.class
+    |           |       ClientProviderController.class
+    |           |       ClientSalesController.class
+    |           |       ExpenseController.class
+    |           |       ProductController.class
+    |           |       ProviderController.class
+    |           |       PurchaseOrderController.class
+    |           |       SaleReturnController.class
+    |           |       SalesMetricsController.class
+    |           |       SpaForwardingController.class
+    |           |       
+    |           +---exception
+    |           |       ApiExceptionHandler.class
+    |           |       
+    |           +---model
+    |           |       Client.class
+    |           |       Employee.class
+    |           |       EmployeeRole.class
+    |           |       Product.class
+    |           |       
+    |           +---repository
+    |           |       ClientRepository.class
+    |           |       EmployeeRepository.class
+    |           |       ProductRepository.class
+    |           |       
+    |           +---security
+    |           |       CustomUserDetailsService.class
+    |           |       
+    |           +---service
+    |           |       CashRegisterSessionService.class
+    |           |       ClientService.class
+    |           |       DataInitializer.class
+    |           |       ExpenseService.class
+    |           |       ProductService.class
+    |           |       ProviderService.class
+    |           |       PurchaseOrderService.class
+    |           |       SaleReturnService.class
+    |           |       SalesService.class
+    |           |       StockAlertScheduler.class
+    |           |       
+    |           \---superpanel
+    |               |   NotificationScheduler.class
+    |               |   PaymentPlanInitializer.class
+    |               |   
+    |               +---controller
+    |               |       AdminController.class
+    |               |       AdminUserController.class
+    |               |       GlobalMetricsController.class
+    |               |       NotificationSettingController.class
+    |               |       PaymentPlanController.class
+    |               |       
+    |               +---dto
+    |               |       GlobalMetricsDTO.class
+    |               |       
+    |               +---model
+    |               |       AdminUser.class
+    |               |       CustomerAccount.class
+    |               |       NotificationSetting.class
+    |               |       PaymentPlan.class
+    |               |       
+    |               +---repository
+    |               |       AdminUserRepository.class
+    |               |       CustomerAccountRepository.class
+    |               |       NotificationSettingRepository.class
+    |               |       PaymentPlanRepository.class
+    |               |       
+    |               \---service
+    |                       AdminUserService.class
+    |                       CustomerAccountService.class
+    |                       GlobalMetricsService.class
+    |                       NotificationSettingService.class
+    |                       PaymentPlanService.class
+    |                       
+    +---generated-sources
+    |   \---annotations
+    +---generated-test-sources
+    |   \---test-annotations
+    +---maven-archiver
+    |       pom.properties
+    |       
+    +---maven-status
+    |   \---maven-compiler-plugin
+    |       +---compile
+    |       |   \---default-compile
+    |       |           createdFiles.lst
+    |       |           inputFiles.lst
+    |       |           
+    |       \---testCompile
+    |           \---default-testCompile
+    |                   createdFiles.lst
+    |                   inputFiles.lst
+    |                   
+    +---surefire-reports
+    |       grupo5.gestion_inventario.GestionInventarioApplicationTests.txt
+    |       TEST-grupo5.gestion_inventario.GestionInventarioApplicationTests.xml
+    |       
+    \---test-classes
+        |   application.properties
+        |   
+        \---grupo5
+            \---gestion_inventario
+                    GestionInventarioApplicationTests.class
+                    

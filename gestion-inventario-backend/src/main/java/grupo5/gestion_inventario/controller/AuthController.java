@@ -1,14 +1,16 @@
+// src/main/java/grupo5/gestion_inventario/controller/AuthController.java
 package grupo5.gestion_inventario.controller;
 
 import grupo5.gestion_inventario.config.JwtUtil;
-import grupo5.gestion_inventario.model.Client;
-import grupo5.gestion_inventario.model.Employee;
-import grupo5.gestion_inventario.repository.ClientRepository;
-import grupo5.gestion_inventario.repository.EmployeeRepository;
 import grupo5.gestion_inventario.clientpanel.dto.AuthRequest;
 import grupo5.gestion_inventario.clientpanel.dto.AuthResponse;
-import grupo5.gestion_inventario.superpanel.model.AdminUser;
+import grupo5.gestion_inventario.model.Client;
+import grupo5.gestion_inventario.model.Employee;
+import grupo5.gestion_inventario.model.EmployeeRole;
 import grupo5.gestion_inventario.superpanel.repository.AdminUserRepository;
+import grupo5.gestion_inventario.repository.ClientRepository;
+import grupo5.gestion_inventario.repository.EmployeeRepository;
+import grupo5.gestion_inventario.superpanel.model.AdminUser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -19,7 +21,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collection;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -33,7 +34,6 @@ public class AuthController {
     @Autowired
     private JwtUtil jwtUtil;
 
-    // Inyectamos todos los repositorios de usuarios
     @Autowired
     private EmployeeRepository employeeRepository;
 
@@ -44,42 +44,78 @@ public class AuthController {
     private ClientRepository clientRepository;
 
     @PostMapping("/login")
-    public ResponseEntity<?> createAuthenticationToken(@RequestBody AuthRequest authRequest) throws Exception {
+    public ResponseEntity<AuthResponse> createAuthenticationToken(
+            @RequestBody AuthRequest authRequest) throws Exception {
+
         // 1. Autenticación genérica
-        final Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(authRequest.getUsername(), authRequest.getPassword())
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        authRequest.getUsername(),
+                        authRequest.getPassword()
+                )
         );
-
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        final UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
 
-        final String jwt;
-
-        // 2. Lógica de diferenciación por roles
+        // 2. Recopilar roles
         Set<String> roles = userDetails.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toSet());
 
-        if (roles.contains("ROLE_ADMINISTRADOR") || roles.contains("ROLE_CAJERO") || roles.contains("ROLE_MULTIFUNCION")) {
-            // Es un Empleado
-            Employee employee = employeeRepository.findByEmail(userDetails.getUsername())
-                    .orElseThrow(() -> new Exception("Empleado no encontrado: " + userDetails.getUsername()));
-            jwt = jwtUtil.generateToken(employee);
+        String token;
+        Long clientId = null;
+        Long employeeId = null;
+
+        if (roles.stream().anyMatch(r ->
+                r.equals("ROLE_ADMINISTRADOR") ||
+                        r.equals("ROLE_CAJERO") ||
+                        r.equals("ROLE_MULTIFUNCION"))) {
+            // Usuario es un Employee (administrador, cajero o multifunción)
+            Employee employee = employeeRepository
+                    .findByEmail(userDetails.getUsername())
+                    .orElseThrow(() ->
+                            new Exception("Empleado no encontrado: " + userDetails.getUsername())
+                    );
+            token = jwtUtil.generateToken(employee);
+            clientId = employee.getClient().getId();
+            employeeId = employee.getId();
 
         } else if (roles.contains("ROLE_CLIENT")) {
-            // Es un Cliente
-            Client client = clientRepository.findByEmail(userDetails.getUsername())
-                    .orElseThrow(() -> new Exception("Cliente no encontrado: " + userDetails.getUsername()));
-            jwt = jwtUtil.generateToken(client);
+            // Usuario es un Cliente (dueño)
+            Client client = clientRepository
+                    .findByEmail(userDetails.getUsername())
+                    .orElseThrow(() ->
+                            new Exception("Cliente no encontrado: " + userDetails.getUsername())
+                    );
+
+            // Buscar su Employee ADMINISTRADOR
+            Employee ownerEmp = employeeRepository
+                    .findByClientIdAndRole(client.getId(), EmployeeRole.ADMINISTRADOR)
+                    .orElseThrow(() ->
+                            new Exception("Empleado ADMINISTRADOR no encontrado para el cliente")
+                    );
+            token = jwtUtil.generateToken(ownerEmp);
+            clientId = client.getId();
+            employeeId = ownerEmp.getId();
 
         } else {
-            // Por defecto, es un AdminUser
-            AdminUser admin = adminUserRepository.findByUsername(userDetails.getUsername())
-                    .orElseThrow(() -> new Exception("Admin no encontrado: " + userDetails.getUsername()));
-            jwt = jwtUtil.generateToken(admin);
+            // Usuario es un AdminUser del superpanel
+            AdminUser admin = adminUserRepository
+                    .findByUsername(userDetails.getUsername())
+                    .orElseThrow(() ->
+                            new Exception("Admin no encontrado: " + userDetails.getUsername())
+                    );
+            token = jwtUtil.generateToken(admin);
+            // superadmin no usa clientId/employeeId
         }
 
-        // 3. Devolvemos el token generado
-        return ResponseEntity.ok(new AuthResponse(jwt));
+        // 3. Responder con token y datos
+        AuthResponse resp = new AuthResponse();
+        resp.setToken(token);
+        resp.setClientId(clientId);
+        resp.setEmployeeId(employeeId);
+        resp.setRoles(roles);
+
+        return ResponseEntity.ok(resp);
     }
 }

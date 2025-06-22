@@ -1,4 +1,4 @@
-package grupo5.gestion_inventario.controller;
+/*package grupo5.gestion_inventario.controller;
 
 import grupo5.gestion_inventario.clientpanel.dto.ClientDashboardDto;
 import grupo5.gestion_inventario.clientpanel.dto.ProductDto;
@@ -18,7 +18,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/client")
-@PreAuthorize("hasRole('CLIENT')")
+@PreAuthorize("hasRole('CLIENT') or hasRole('ROLE_CLIENT')")
 public class ClientDashboardController {
 
     private final ClientRepository clientRepo;
@@ -61,7 +61,7 @@ public class ClientDashboardController {
     /**
      * Datos para el gráfico de volumen de ventas e importe.
      * GET /client/sales/summary?days=30
-     */
+
     @GetMapping("/sales/summary")
     public ResponseEntity<List<SalesDailySummaryDto>> getSalesSummary(
             @RequestParam(defaultValue = "30") int days,
@@ -92,3 +92,5 @@ public class ClientDashboardController {
         return ResponseEntity.ok(sales);
     }
 }
+
+ */

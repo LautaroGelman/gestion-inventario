@@ -2,15 +2,19 @@ package grupo5.gestion_inventario.config;
 
 import grupo5.gestion_inventario.model.Client;
 import grupo5.gestion_inventario.model.Employee;
+import grupo5.gestion_inventario.model.EmployeeRole;
+import grupo5.gestion_inventario.repository.EmployeeRepository;
 import grupo5.gestion_inventario.superpanel.model.AdminUser;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +30,9 @@ public class JwtUtil {
 
     @Value("${jwt.expiration}")
     private Long expiration;
+
+    @Autowired
+    private EmployeeRepository employeeRepository;
 
     public String getUsernameFromToken(String token) {
         return getClaimFromToken(token, Claims::getSubject);
@@ -45,7 +52,11 @@ public class JwtUtil {
     }
 
     private Claims getAllClaimsFromToken(String token) {
-        return Jwts.parserBuilder().setSigningKey(secret).build().parseClaimsJws(token).getBody();
+        return Jwts.parserBuilder()
+                .setSigningKey(secret)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
 
     private Boolean isTokenExpired(String token) {
@@ -53,9 +64,9 @@ public class JwtUtil {
         return expiration.before(new Date());
     }
 
-    // --- MÉTODOS SOBRECARGADOS PARA GENERAR TOKENS ESPECÍFICOS ---
+    // --- MÉTODOS PARA GENERAR TOKENS ---
 
-    // Token para AdminUser
+    // 1) Token para superadmin
     public String generateToken(AdminUser admin) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("roles", admin.getRoles());
@@ -63,21 +74,44 @@ public class JwtUtil {
         return createToken(claims, admin.getUsername());
     }
 
-    // Token para Employee
+    // 2) Token para empleados (cajeros, multifunción)
     public String generateToken(Employee employee) {
+        List<String> rolesList = employee.getAuthorities()
+                .stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toList());
+        // Si es administrador, habilitar también como cliente
+        if (rolesList.contains("ROLE_ADMINISTRADOR")) {
+            rolesList.add("ROLE_CLIENT");
+        }
         Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", employee.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toList()));
+        claims.put("roles", rolesList);
         claims.put("clientId", employee.getClient().getId());
         claims.put("employeeName", employee.getName());
-        return createToken(claims, employee.getUsername()); // getUsername() devuelve el email
+        claims.put("employeeId", employee.getId());
+        return createToken(claims, employee.getUsername());
     }
 
-    // Token para Client
+    // 3) Token para cliente (dueño)
     public String generateToken(Client client) {
+        // Buscar su empleado ADMINISTRADOR
+        Employee ownerEmp = employeeRepository
+                .findByClientIdAndRole(client.getId(), EmployeeRole.ADMINISTRADOR)
+                .orElseThrow(() -> new RuntimeException("Empleado ADMINISTRADOR no encontrado para el cliente"));
+        // Recopilar roles del empleado y añadir ROLE_CLIENT
+        List<String> rolesList = ownerEmp.getAuthorities()
+                .stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toCollection(ArrayList::new));
+        if (!rolesList.contains("ROLE_CLIENT")) {
+            rolesList.add("ROLE_CLIENT");
+        }
         Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", List.of("ROLE_CLIENT"));
+        claims.put("roles", rolesList);
         claims.put("clientId", client.getId());
         claims.put("clientName", client.getName());
+        claims.put("employeeId", ownerEmp.getId());
+        claims.put("employeeName", ownerEmp.getName());
         return createToken(claims, client.getEmail());
     }
 

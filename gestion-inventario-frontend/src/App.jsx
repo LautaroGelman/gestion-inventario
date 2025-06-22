@@ -1,5 +1,6 @@
+// src/App.jsx
 import React from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import HomeRedirector from './components/HomeRedirector';
@@ -26,19 +27,21 @@ function App() {
                 {/* Ruta Raíz Protegida - Redirige al panel correcto */}
                 <Route path="/" element={<ProtectedRoute><HomeRedirector /></ProtectedRoute>} />
 
-                {/* Panel de Administración (Solo para SUPER_ADMIN) */}
-                {/* 👇 CAMBIO AQUÍ: Usamos 'ROLE_ADMIN' en lugar de 'ROLE_SUPER_ADMIN' */}
+                {/* Panel de Administración */}
                 <Route path="/admin" element={<ProtectedRoute allowedRoles={['ROLE_ADMIN']}><AdminPanelPage /></ProtectedRoute>} />
                 <Route path="/register-client" element={<ProtectedRoute allowedRoles={['ROLE_ADMIN']}><ClientFormPage /></ProtectedRoute>} />
 
-                {/* Panel de Negocio (Accesible por Cliente y sus Empleados) */}
+                {/* Panel de Negocio */}
                 <Route path="/panel" element={<ProtectedRoute allowedRoles={clientPanelRoles}><ClientPanelPage /></ProtectedRoute>} />
 
-                {/* Sub-rutas del Panel de Negocio con permisos más específicos */}
+                {/* Sub-rutas del Panel de Negocio */}
                 <Route path="/inventory-form/:id?" element={<ProtectedRoute allowedRoles={['ROLE_CLIENT', 'ROLE_ADMINISTRADOR', 'ROLE_MULTIFUNCION']}><ArticleFormPage /></ProtectedRoute>} />
                 <Route path="/provider-form/:id?" element={<ProtectedRoute allowedRoles={['ROLE_CLIENT', 'ROLE_ADMINISTRADOR', 'ROLE_MULTIFUNCION']}><ProviderFormPage /></ProtectedRoute>} />
                 <Route path="/sale-form" element={<ProtectedRoute allowedRoles={['ROLE_CLIENT', 'ROLE_CAJERO', 'ROLE_MULTIFUNCION']}><SaleFormPage /></ProtectedRoute>} />
                 <Route path="/return-sale/:saleId" element={<ProtectedRoute allowedRoles={['ROLE_CLIENT', 'ROLE_CAJERO', 'ROLE_MULTIFUNCION']}><ReturnFormPage /></ProtectedRoute>} />
+
+                {/* Cualquier otra ruta redirige a la raíz */}
+                <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </AuthProvider>
     );

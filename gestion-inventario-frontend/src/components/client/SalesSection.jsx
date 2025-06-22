@@ -36,7 +36,8 @@ function SalesSection() {
     }, [user]); // El efecto ahora depende del 'user' para obtener el clientId
 
     const handleNewSale = () => {
-        navigate('/add-sale');
+        // Debe coincidir con la ruta en App.jsx: "/sale-form"
+        navigate('/sale-form');
     };
 
     const handleReturn = (saleId) => {
@@ -55,7 +56,9 @@ function SalesSection() {
         <div className="sales-section">
             <div className="section-header">
                 <h2>Ventas</h2>
-                <button className="btn-new" onClick={handleNewSale}>Registrar nueva venta</button>
+                <button type="button" className="btn-new" onClick={handleNewSale}>
+                    Registrar nueva venta
+                </button>
             </div>
             <table>
                 <thead>

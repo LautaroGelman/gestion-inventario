@@ -1,33 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-// 1. IMPORTACIONES CORREGIDAS:
-//    Importamos las funciones para obtener productos y crear ventas, y el hook de autenticación.
 import { getProducts, createSale } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import './SaleFormPage.css';
 
 function SaleFormPage() {
-    const { user } = useAuth(); // Para obtener el clientId
+    const { user } = useAuth();
     const navigate = useNavigate();
     const [products, setProducts] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [cart, setCart] = useState([]);
-    const [customerName, setCustomerName] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState('EFECTIVO');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Nos aseguramos de tener el clientId antes de buscar los productos
         if (!user?.clientId) return;
-
         const fetchProducts = async () => {
             setLoading(true);
             setError('');
             try {
-                // 2. LLAMADA GET CORREGIDA:
                 const response = await getProducts(user.clientId);
-                // Los nombres de los productos en el DTO son 'name' y 'price'
-                setProducts(response.data.map(p => ({ ...p, nombre: p.name, precio: p.price })));
+                setProducts(
+                    response.data.map(p => ({
+                        ...p,
+                        nombre: p.name,
+                        precio: p.price,
+                        cantidadStock: p.quantity  // incluir stock disponible
+                    }))
+                );
             } catch (err) {
                 console.error('Error fetching products:', err);
                 setError('No se pudieron cargar los productos.');
@@ -36,42 +37,52 @@ function SaleFormPage() {
             }
         };
         fetchProducts();
-    }, [user]); // El efecto depende del 'user'
+    }, [user]);
 
     const handleAddToCart = (product) => {
-        setCart(prevCart => {
-            const existingProduct = prevCart.find(item => item.id === product.id);
-            if (existingProduct) {
-                return prevCart.map(item =>
-                    item.id === product.id ? { ...item, cantidad: item.cantidad + 1 } : item
+        setCart(prev => {
+            const exist = prev.find(item => item.id === product.id);
+            if (exist) {
+                // no agregar más de lo que hay en stock
+                if (exist.cantidad >= product.cantidadStock) {
+                    alert(`Sólo quedan ${product.cantidadStock} unidades de ${product.nombre}`);
+                    return prev;
+                }
+                return prev.map(item =>
+                    item.id === product.id
+                        ? { ...item, cantidad: item.cantidad + 1 }
+                        : item
                 );
-            } else {
-                return [...prevCart, { ...product, cantidad: 1 }];
             }
+            return [...prev, { ...product, cantidad: 1 }];
         });
     };
 
-    const handleUpdateQuantity = (productId, newQuantity) => {
-        const quantity = parseInt(newQuantity, 10);
-        if (isNaN(quantity) || quantity <= 0) {
-            setCart(prevCart => prevCart.filter(item => item.id !== productId));
-        } else {
-            setCart(prevCart =>
-                prevCart.map(item =>
-                    item.id === productId ? { ...item, cantidad: quantity } : item
-                )
-            );
-        }
+    const handleUpdateQuantity = (productId, newQty) => {
+        const qty = parseInt(newQty, 10);
+        setCart(prev => prev
+            .map(item => {
+                if (item.id === productId) {
+                    const validQty = isNaN(qty) || qty < 1 ? 1 : qty;
+                    if (validQty > item.cantidadStock) {
+                        alert(`Sólo quedan ${item.cantidadStock} unidades de ${item.nombre}`);
+                        return { ...item, cantidad: item.cantidadStock };
+                    }
+                    return { ...item, cantidad: validQty };
+                }
+                return item;
+            })
+            .filter(item => item.cantidad > 0)
+        );
     };
 
-    const calculateSubtotal = () => {
-        return cart.reduce((total, item) => total + item.precio * item.cantidad, 0).toFixed(2);
-    };
+    const calculateSubtotal = () =>
+        cart.reduce((sum, item) => sum + item.precio * item.cantidad, 0).toFixed(2);
 
-    const handleSubmit = async (event) => {
-        event.preventDefault();
+    const handleSubmit = async (e) => {
+        e.preventDefault();
         if (!user?.clientId) {
-            alert('Error: No se pudo identificar al cliente. Por favor, recarga la página.');
+            alert('Error: No se pudo identificar al cliente.');
             return;
         }
         if (cart.length === 0) {
@@ -79,41 +90,35 @@ function SaleFormPage() {
             return;
         }
 
+        const now = new Date().toISOString().slice(0, 19); // "YYYY-MM-DDTHH:mm:ss"
         const saleData = {
-            // El backend espera 'customer' en lugar de 'cliente'
-            customer: customerName || 'Consumidor Final',
+            paymentMethod,
+            saleDate: now,
             items: cart.map(item => ({
                 productId: item.id,
-                quantity: item.cantidad, // El backend espera 'quantity'
-            }))
+                quantity: item.cantidad
+            })),
+            employeeId: user.employeeId    // siempre incluido
         };
 
         try {
-            // 3. LLAMADA POST CORREGIDA:
             await createSale(user.clientId, saleData);
             alert('Venta registrada con éxito');
-            navigate('/panel-cliente#sales'); // Redirigimos a la sección de ventas
+            navigate('/panel');
         } catch (err) {
             console.error('Error creating sale:', err);
             alert('Error al registrar la venta: ' + (err.response?.data?.message || ''));
         }
     };
 
-    const filteredProducts = products.filter(p =>
-        p.nombre.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    if (loading) {
-        return <div>Cargando productos...</div>;
-    }
-
-    if (error) {
-        return <div className="error-message">{error}</div>;
-    }
+    if (loading) return <div>Cargando productos...</div>;
+    if (error) return <div className="error-message">{error}</div>;
 
     return (
-        <div className="sale-form-container">
-            <h1>Punto de Venta</h1>
+        <div className="container-form">
+            <div className="form-header">
+                <h1>Punto de Venta</h1>
+            </div>
             <div className="pos-layout">
                 <div className="product-list-section">
                     <h2>Productos</h2>
@@ -122,60 +127,76 @@ function SaleFormPage() {
                         placeholder="Buscar producto..."
                         className="search-input"
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={e => setSearchTerm(e.target.value)}
                     />
                     <div className="product-list">
-                        {filteredProducts.map(product => (
-                            <div key={product.id} className="product-item" onClick={() => handleAddToCart(product)}>
-                                <span>{product.nombre}</span>
-                                <span>${product.precio.toFixed(2)}</span>
-                            </div>
-                        ))}
+                        {products
+                            .filter(p => p.nombre.toLowerCase().includes(searchTerm.toLowerCase()))
+                            .map(product => (
+                                <div
+                                    key={product.id}
+                                    className="product-item"
+                                    onClick={() => handleAddToCart(product)}
+                                >
+                                    <span>{product.nombre}</span>
+                                    <span>Stock: {product.cantidadStock}</span>
+                                    <span>${product.precio.toFixed(2)}</span>
+                                </div>
+                            ))}
                     </div>
                 </div>
 
-                <div className="cart-section">
-                    <h2>Carrito</h2>
-                    <form onSubmit={handleSubmit}>
-                        <div className="customer-input-container">
-                            <label htmlFor="customerName">Nombre del Cliente (Opcional):</label>
-                            <input
-                                type="text"
-                                id="customerName"
-                                value={customerName}
-                                onChange={(e) => setCustomerName(e.target.value)}
-                                className="customer-input"
-                            />
-                        </div>
+                <form id="form-venta" onSubmit={handleSubmit} className="form-container">
+                    <div className="form-group">
+                        <label htmlFor="paymentMethod">Método de Pago:</label>
+                        <select
+                            id="paymentMethod"
+                            value={paymentMethod}
+                            onChange={e => setPaymentMethod(e.target.value)}
+                            className="customer-input"
+                        >
+                            <option value="EFECTIVO">Efectivo</option>
+                            <option value="TARJETA">Tarjeta</option>
+                            <option value="TRANSFERENCIA">Transferencia</option>
+                        </select>
+                    </div>
 
-                        <div className="cart-items">
-                            {cart.length === 0 ? (
-                                <p>El carrito está vacío.</p>
-                            ) : (
-                                cart.map(item => (
-                                    <div key={item.id} className="cart-item">
-                                        <span className="item-name">{item.nombre}</span>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={item.cantidad}
-                                            onChange={(e) => handleUpdateQuantity(item.id, e.target.value)}
-                                            className="item-quantity"
-                                        />
-                                        <span className="item-price">${(item.precio * item.cantidad).toFixed(2)}</span>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                        <div className="cart-summary">
-                            <h3>Subtotal: ${calculateSubtotal()}</h3>
-                            <button type="submit" className="submit-button">Registrar Venta</button>
-                        </div>
-                    </form>
-                </div>
+                    <div className="cart-items">
+                        {cart.length === 0 ? (
+                            <p>El carrito está vacío.</p>
+                        ) : (
+                            cart.map(item => (
+                                <div key={item.id} className="form-group cart-item">
+                                    <span className="item-name">{item.nombre}</span>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        value={item.cantidad}
+                                        onChange={e => handleUpdateQuantity(item.id, e.target.value)}
+                                        className="item-quantity"
+                                    />
+                                    <span className="item-price">
+                                        ${(item.precio * item.cantidad).toFixed(2)}
+                                    </span>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    <div className="cart-summary form-group">
+                        <h3>Subtotal: ${calculateSubtotal()}</h3>
+                    </div>
+
+                    <div className="form-actions">
+                        <button type="submit" className="btn-submit">
+                            Registrar Venta
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );
 }
 
 export default SaleFormPage;
+

@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import './index.css';
+import './chartSetup';
 
 // ──────────────── DEBUG ENV ────────────────
 // Solo muestra el valor cuando estás en modo dev

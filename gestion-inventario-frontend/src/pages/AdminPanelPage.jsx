@@ -60,10 +60,11 @@ function AdminPanelPage() {
     }, [location, navigate, activeSection]);
 
     const handleLogout = () => {
-        // Limpiamos el token al cerrar sesión
         localStorage.removeItem('token');
-        // No es necesario borrar 'user', ya que se deriva del token
-        navigate('/login');
+        // ...y de las cookies (si tuvieras un token HTTP-only cambialo por el nombre real)
+        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        // Redirigimos siempre al login
+        navigate('/login', { replace: true });
     };
 
     const handleSectionChange = (section) => {

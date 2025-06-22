@@ -1,5 +1,6 @@
 package grupo5.gestion_inventario.superpanel.service;
 
+import grupo5.gestion_inventario.repository.ClientRepository;
 import grupo5.gestion_inventario.clientpanel.repository.SaleRepository;
 import grupo5.gestion_inventario.superpanel.dto.GlobalMetricsDTO;
 import grupo5.gestion_inventario.superpanel.repository.CustomerAccountRepository;
@@ -11,35 +12,41 @@ import java.time.LocalDateTime;
 @Service
 public class GlobalMetricsService {
 
-    private final CustomerAccountRepository accountRepo;
+    private final ClientRepository clientRepo;
     private final SaleRepository saleRepo;
+    private final CustomerAccountRepository accountRepo;
 
-    public GlobalMetricsService(CustomerAccountRepository accountRepo,
-                                SaleRepository saleRepo) {
-        this.accountRepo = accountRepo;
+    public GlobalMetricsService(ClientRepository clientRepo,
+                                SaleRepository saleRepo,
+                                CustomerAccountRepository accountRepo) {
+        this.clientRepo  = clientRepo;
         this.saleRepo    = saleRepo;
+        this.accountRepo = accountRepo;
     }
 
-    // 👇 CAMBIO AQUÍ: Renombrado de "summary" a "getGlobalMetrics" para que coincida con el Controller.
     public GlobalMetricsDTO getGlobalMetrics() {
-        long total    = accountRepo.count();
-        long trial    = accountRepo.countByPlanName("FREE_TRIAL");
-        long standard = accountRepo.countByPlanName("STANDARD");
-        long premium  = accountRepo.countByPlanName("PREMIUM");
+        // Usa la tabla 'client' para contar cuentas y planes
+        long totalAccounts       = clientRepo.count();
+        long freeTrialAccounts   = clientRepo.countByPlan("BASICO");
+        long standardAccounts    = clientRepo.countByPlan("INTERMEDIO");
+        long premiumAccounts     = clientRepo.countByPlan("PREMIUM");
 
-        BigDecimal revenue30d = saleRepo.totalRevenueSince(LocalDateTime.now().minusDays(30));
+        // Ingresos últimos 30 días
+        BigDecimal totalRevenueLast30d =
+                saleRepo.totalRevenueSince(LocalDateTime.now().minusDays(30));
 
-        long products   = accountRepo.countAllProducts();
-        long lowStock   = accountRepo.countLowStock();
+        // Productos y alertas (sigue usando las queries de CustomerAccountRepository)
+        long totalProducts     = accountRepo.countAllProducts();
+        long lowStockAlerts    = accountRepo.countLowStock();
 
         return new GlobalMetricsDTO(
-                total,
-                trial,
-                standard,
-                premium,
-                revenue30d,
-                products,
-                lowStock
+                totalAccounts,
+                freeTrialAccounts,
+                standardAccounts,
+                premiumAccounts,
+                totalRevenueLast30d,
+                totalProducts,
+                lowStockAlerts
         );
     }
 }
