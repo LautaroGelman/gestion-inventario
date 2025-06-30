@@ -6,7 +6,7 @@ import grupo5.gestion_inventario.model.EmployeeRole;
 public class CreateEmployeeRequest {
     private String name;
     private String email;
-    private String passwordHash;
+    private String password;
     private EmployeeRole role;
 
     public String getName() {
@@ -23,11 +23,11 @@ public class CreateEmployeeRequest {
         this.email = email;
     }
 
-    public String getPasswordHash() {
-        return passwordHash;
+    public String getPassword() {
+        return password;
     }
-    public void setPasswordHash(String passwordHash) {
-        this.passwordHash = passwordHash;
+    public void setPassword(String password) {
+        this.password = password;
     }
 
     public EmployeeRole getRole() {
@@ -37,3 +37,4 @@ public class CreateEmployeeRequest {
         this.role = role;
     }
 }
+

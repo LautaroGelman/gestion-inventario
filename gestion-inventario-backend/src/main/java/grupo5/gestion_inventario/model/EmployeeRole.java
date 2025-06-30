@@ -1,11 +1,13 @@
 package grupo5.gestion_inventario.model;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import org.springframework.security.core.GrantedAuthority;
 
 public enum EmployeeRole implements GrantedAuthority {
     ADMINISTRADOR,
     CAJERO,
     MULTIFUNCION;
+
 
     @Override
     public String getAuthority() {

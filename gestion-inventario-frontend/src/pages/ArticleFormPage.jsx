@@ -16,7 +16,7 @@ function ArticleFormPage() {
         code: '',
         name: '',
         description: '',
-        stock: 0, // El DTO del backend usa 'stock'
+        quantity: 0, // antes "stock"
         cost: 0,
         price: 0,
     });
@@ -71,6 +71,8 @@ function ArticleFormPage() {
             setError(err.response?.data?.message || 'Error al guardar el artículo.');
             console.error("Error saving article:", err);
         }
+        console.log('Payload:', formData);
+
     };
 
     if (loading) return <div>Cargando...</div>;
@@ -98,8 +100,8 @@ function ArticleFormPage() {
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="stock">Stock:</label>
-                        <input type="number" id="stock" name="stock" value={formData.stock} onChange={handleChange} min="0" required />
+                        <label htmlFor="quantity">Stock:</label>
+                        <input type="number" id="quantity" name="quantity" value={formData.quantity} onChange={handleChange} min="0" required />
                     </div>
 
                     <div className="form-group">

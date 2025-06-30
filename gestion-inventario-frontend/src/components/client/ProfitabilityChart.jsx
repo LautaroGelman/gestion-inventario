@@ -1,91 +1,98 @@
+// src/components/dashboard/ProfitabilityChart.jsx
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-// 1. IMPORTACIONES CORREGIDAS:
-//    Importamos la función para obtener ventas y el hook de autenticación.
-import { getSales } from '../../services/api';
+import { Line } from 'react-chartjs-2';
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+    Colors,
+} from 'chart.js';
+import { getProfitabilitySummary } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import './SalesSection.css';
 
-function SalesSection() {
-    const { user } = useAuth(); // Para obtener el clientId
-    const [sales, setSales] = useState([]);
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+    Colors
+);
+
+export default function ProfitabilityChart() {
+    const { user } = useAuth();
+    const [rows,    setRows]    = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const navigate = useNavigate();
+    const [error,   setError]   = useState('');
 
+    /* ------------------------- cargar datos -------------------------- */
     useEffect(() => {
-        // Nos aseguramos de tener el clientId antes de la llamada
         if (!user?.clientId) return;
 
-        const fetchSales = async () => {
+        (async () => {
             try {
                 setLoading(true);
-                // 2. LLAMADA A LA API CORREGIDA:
-                //    Usamos la función getSales con el clientId del usuario.
-                const response = await getSales(user.clientId);
-                setSales(response.data); // La respuesta de Axios está en 'data'
+                const { data } = await getProfitabilitySummary(user.clientId);
+                console.log('⚡ profitability data:', data);
+                setRows(data);
             } catch (err) {
-                setError(err.response?.data?.message || 'No se pudo cargar el historial de ventas.');
-                console.error("Error fetching sales:", err);
+                console.error('Error fetching profitability:', err);
+                setError(err.response?.data?.message || 'No se pudo cargar la rentabilidad.');
             } finally {
                 setLoading(false);
             }
-        };
+        })();
+    }, [user]);
 
-        fetchSales();
-    }, [user]); // El efecto se dispara cuando el 'user' está disponible
+    /* ----------------------------- UI -------------------------------- */
+    if (loading) return <div>Cargando rentabilidad…</div>;
+    if (error)   return <div className="error-message">Error: {error}</div>;
+    if (!rows.length) return <div>No hay datos de rentabilidad para mostrar.</div>;
 
-    const handleNewSale = () => {
-        navigate('/add-sale');
+    /* ----------------------- preparar gráfico ------------------------ */
+    const labels       = rows.map(r => r.date);
+    const revenueData  = rows.map(r => r.revenue      ?? 0);
+    const costData     = rows.map(r => r.costOfGoods  ?? 0);
+    const profitData   = rows.map(r => r.profit       ?? 0);
+
+    const chartData = {
+        labels,
+        datasets: [
+            { label: 'Ingresos',        data: revenueData },
+            { label: 'Costo de ventas', data: costData    },
+            { label: 'Ganancia',        data: profitData  },
+        ],
     };
 
-    const handleReturn = (saleId) => {
-        navigate(`/return-sale/${saleId}`);
+    const options = {
+        responsive: true,
+        plugins: {
+            legend: { position: 'bottom' },
+            title:  { display: true, text: 'Rentabilidad diaria (últimos 30 días)' },
+            tooltip: {
+                callbacks: {
+                    label: ctx => `${ctx.dataset.label}: $${Number(ctx.parsed.y).toFixed(2)}`,
+                },
+            },
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: { callback: v => `$${Number(v).toFixed(2)}` },
+            },
+        },
     };
-
-    if (loading) {
-        return <div>Cargando ventas...</div>;
-    }
-
-    if (error) {
-        return <div className="error-message">Error: {error}</div>;
-    }
 
     return (
-        <div className="sales-section">
-            <div className="section-header">
-                <h2>Ventas</h2>
-                <button className="btn-new" onClick={handleNewSale}>Registrar nueva venta</button>
-            </div>
-            <table>
-                <thead>
-                <tr>
-                    <th>ID Venta</th>
-                    <th>Cliente</th>
-                    <th>Total</th>
-                    <th>Fecha</th>
-                    <th>Acciones</th>
-                </tr>
-                </thead>
-                <tbody>
-                {/* El backend devuelve SaleDto con: id, cliente, totalAmount, fecha */}
-                {sales.map((sale) => (
-                    <tr key={sale.id}>
-                        <td>{sale.id}</td>
-                        <td>{sale.cliente}</td>
-                        <td>${sale.totalAmount.toFixed(2)}</td>
-                        <td>{new Date(sale.fecha).toLocaleString()}</td>
-                        <td>
-                            <button className="btn-action" onClick={() => handleReturn(sale.id)}>
-                                Devolver
-                            </button>
-                        </td>
-                    </tr>
-                ))}
-                </tbody>
-            </table>
+        <div className="profitability-chart">
+            <Line data={chartData} options={options} />
         </div>
     );
 }
-
-export default SalesSection;

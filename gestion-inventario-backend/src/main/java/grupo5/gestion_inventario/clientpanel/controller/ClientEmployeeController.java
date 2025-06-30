@@ -16,7 +16,8 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/client-panel/{clientId}/employees")
-@PreAuthorize("hasAnyRole('ROLE_CLIENT','ROLE_ADMINISTRADOR','ROLE_CAJERO','ROLE_MULTIFUNCION')")
+// Solo cliente y administradores pueden crear empleados
+@PreAuthorize("hasAnyRole('ROLE_CLIENT','ROLE_ADMINISTRADOR')")
 public class ClientEmployeeController {
 
     private final EmployeeService employeeService;

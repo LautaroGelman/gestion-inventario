@@ -1,5 +1,5 @@
 Listado de rutas de carpetas
-El n£mero de serie del volumen es 0000006A 1890:2582
+El n£mero de serie del volumen es 00000016 1890:2582
 C:\USERS\LAUTARO\DESKTOP\GESTION-INVENTARIO\GESTION-INVENTARIO-FRONTEND
 |   .env
 |   .gitignore
@@ -4876,6 +4876,7 @@ C:\USERS\LAUTARO\DESKTOP\GESTION-INVENTARIO\GESTION-INVENTARIO-FRONTEND
 |       
 \---src
     |   App.jsx
+    |   chartSetup.js
     |   index.css
     |   main.jsx
     |   
@@ -4899,6 +4900,7 @@ C:\USERS\LAUTARO\DESKTOP\GESTION-INVENTARIO\GESTION-INVENTARIO-FRONTEND
     |           CashSessionModal.jsx
     |           DashboardSection.css
     |           DashboardSection.jsx
+    |           EmployeesSection.jsx
     |           InventorySection.css
     |           InventorySection.jsx
     |           Notifications.css
@@ -4906,6 +4908,7 @@ C:\USERS\LAUTARO\DESKTOP\GESTION-INVENTARIO\GESTION-INVENTARIO-FRONTEND
     |           ProvidersSection.jsx
     |           ReportsSection.css
     |           ReportsSection.jsx
+    |           ReturnsSection.jsx
     |           SalesByEmployeeTable.jsx
     |           SalesChart.jsx
     |           SalesSection.css

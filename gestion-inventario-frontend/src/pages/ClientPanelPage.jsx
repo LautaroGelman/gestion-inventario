@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCashSession } from '../hooks/useCashSession';
 
@@ -16,7 +16,6 @@ import ReturnsSection from '../components/client/ReturnsSection';
 import './ClientPanelPage.css';
 
 function ClientPanelPage() {
-    // Hooks at top
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const {
@@ -29,39 +28,35 @@ function ClientPanelPage() {
         setModalOpen
     } = useCashSession();
 
-    // Extraer roleKey (sin prefijo ROLE_)
     const roleKey = user?.role?.replace(/^ROLE_/, '') || '';
 
-    // Mapeo de roles a secciones
+    // Mapeo actualizado de roles a secciones
     const ROLES = {
         CLIENT: ['dashboard', 'inventory', 'sales', 'providers', 'reports', 'employees', 'returns'],
         ADMINISTRADOR: ['dashboard', 'inventory', 'sales', 'providers', 'reports', 'employees', 'returns'],
         MULTIFUNCION: ['dashboard', 'inventory', 'sales', 'providers', 'reports', 'employees', 'returns'],
-        CAJERO: ['dashboard', 'sales']
+        CAJERO: ['inventory', 'sales', 'returns']
     };
 
-    // Verifica permiso por sección
     const userCanView = (section) => ROLES[roleKey]?.includes(section);
 
-    // Estado para sección activa, siempre inicializado
     const [activeSection, setActiveSection] = useState('dashboard');
 
-    // Efecto: cuando user cambie, establecemos sección inicial según rol
     useEffect(() => {
         if (user) {
-            const defaultSection = userCanView('dashboard') ? 'dashboard' : (ROLES[roleKey]?.[0] || 'dashboard');
+            const defaultSection = userCanView('dashboard')
+                ? 'dashboard'
+                : (ROLES[roleKey]?.[0] || 'inventory');
             setActiveSection(defaultSection);
         }
     }, [user, roleKey]);
 
-    // Efecto: si activeSection deja de ser válido, reajustar
     useEffect(() => {
         if (user && !userCanView(activeSection)) {
-            setActiveSection(ROLES[roleKey]?.[0] || 'dashboard');
+            setActiveSection(ROLES[roleKey]?.[0] || 'inventory');
         }
     }, [user, roleKey, activeSection]);
 
-    // Función para renderizar sección
     const renderSection = () => {
         switch (activeSection) {
             case 'inventory': return <InventorySection />;
@@ -74,17 +69,14 @@ function ClientPanelPage() {
         }
     };
 
-    // Mostrar cargando si user aún no está definido
     if (!user) {
         return <div>Cargando...</div>;
     }
 
-    // Acciones rápidas y navegación
     const goToNewEmployee = () => navigate('/employee-form');
     const goToNewSale     = () => navigate('/sale-form');
     const goToReturnSale  = () => navigate('/sale-form');
 
-    // Logout
     const handleLogout = () => {
         localStorage.removeItem('token');
         document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
@@ -92,8 +84,7 @@ function ClientPanelPage() {
         navigate('/login', { replace: true });
     };
 
-    // Flags de rol para UI
-    const isCashierRole = ['CAJERO', 'MULTIFUNCION'].includes(roleKey);
+    const isCashierRole = roleKey === 'CAJERO';
     const isAdminRole   = ['CLIENT', 'ADMINISTRADOR', 'MULTIFUNCION'].includes(roleKey);
 
     return (
@@ -186,3 +177,4 @@ function ClientPanelPage() {
 }
 
 export default ClientPanelPage;
+

@@ -24,26 +24,34 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Lógica de ventas: registrar, listar y generar reportes.
+ */
 @Service
 public class SalesService {
 
-    private final SaleRepository saleRepo;
-    private final ClientRepository clientRepo;
-    private final ProductRepository productRepo;
+    private final SaleRepository     saleRepo;
+    private final ClientRepository   clientRepo;
+    private final ProductRepository  productRepo;
     private final EmployeeRepository employeeRepo;
 
     public SalesService(SaleRepository saleRepo,
                         ClientRepository clientRepo,
                         ProductRepository productRepo,
                         EmployeeRepository employeeRepo) {
-        this.saleRepo = saleRepo;
-        this.clientRepo = clientRepo;
-        this.productRepo = productRepo;
+        this.saleRepo     = saleRepo;
+        this.clientRepo   = clientRepo;
+        this.productRepo  = productRepo;
         this.employeeRepo = employeeRepo;
     }
 
+    /* ------------------------------------------------------------------
+     *  CREAR VENTA
+     * ------------------------------------------------------------------ */
     @Transactional
     public SaleDto createSale(Long clientId, SaleRequest req) {
+
+        /* 1. Validaciones básicas */
         Client client = clientRepo.findById(clientId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.BAD_REQUEST, "Cliente no encontrado: " + clientId));
@@ -55,45 +63,46 @@ public class SalesService {
                             HttpStatus.BAD_REQUEST, "Empleado no encontrado: " + req.getEmployeeId()));
         }
 
+        /* 2. Instanciamos la venta vacía */
         Sale sale = new Sale(client, employee, req.getPaymentMethod(), req.getSaleDate());
 
+        int totalQty = 0; // acumulamos el total de unidades vendidas
+
+        /* 3. Añadimos los ítems y actualizamos stock */
         for (SaleItemRequest itemReq : req.getItems()) {
+
             Product product = productRepo.findById(itemReq.getProductId())
                     .orElseThrow(() -> new ResponseStatusException(
-                            HttpStatus.BAD_REQUEST, "Producto no encontrado (ID): " + itemReq.getProductId()));
+                            HttpStatus.BAD_REQUEST,
+                            "Producto no encontrado (ID): " + itemReq.getProductId()));
 
-            int stockActual = product.getQuantity();
-            int qtySolicitada = itemReq.getQuantity();
-            // Debug log sin caracteres ilegales
+            int currentStock = product.getQuantity();
+            int qtyRequested = itemReq.getQuantity();
+
             System.out.printf("[DEBUG] Producto %s: stock=%d, request=%d%n",
-                    product.getName(), stockActual, qtySolicitada);
+                    product.getName(), currentStock, qtyRequested);
 
-            int newStock = stockActual - qtySolicitada;
-            if (newStock < 0) {
+            if (currentStock - qtyRequested < 0) {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
-                        String.format("Stock insuficiente para %s: quedan %d unidades",
-                                product.getName(), stockActual)
-                );
+                        "Stock insuficiente para %s: quedan %d unidades"
+                                .formatted(product.getName(), currentStock));
             }
-            product.setQuantity(newStock);
 
-            SaleItem item = new SaleItem(product, qtySolicitada, product.getPrice());
+            product.setQuantity(currentStock - qtyRequested);
+
+            SaleItem item = new SaleItem(product, qtyRequested, product.getPrice());
             sale.addItem(item);
+
+            totalQty += qtyRequested;
         }
 
+        /* 4. Guardamos y devolvemos DTO */
         Sale saved = saleRepo.save(sale);
 
-        String itemNames = saved.getItems().stream()
-                .map(i -> i.getProduct().getName())
-                .collect(Collectors.joining(", "));
-        int totalQty = saved.getItems().stream()
-                .mapToInt(SaleItem::getQuantity)
-                .sum();
-
         return new SaleDto(
+                saved.getId(),
                 client.getName(),
-                itemNames,
                 totalQty,
                 saved.getTotalAmount(),
                 saved.getPaymentMethod(),
@@ -101,13 +110,49 @@ public class SalesService {
         );
     }
 
-    // ... (EL RESTO DE TUS MÉTODOS SE MANTIENEN IGUAL) ...
-
+    /* ------------------------------------------------------------------
+     *  LECTURA DE VENTAS
+     * ------------------------------------------------------------------ */
     @Transactional(readOnly = true)
-    public long countSalesToday(Long clientId) {
+    public List<SaleDto> findByClientId(Long clientId) {
+
         if (!clientRepo.existsById(clientId)) {
             throw new IllegalArgumentException("Cliente no encontrado: " + clientId);
         }
+
+        return saleRepo.findByClientId(clientId)
+                .stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    private SaleDto toDto(Sale sale) {
+
+        int totalQty = sale.getItems()
+                .stream()
+                .mapToInt(SaleItem::getQuantity)
+                .sum();
+
+        return new SaleDto(
+                sale.getId(),
+                sale.getClient().getName(),
+                totalQty,
+                sale.getTotalAmount(),
+                sale.getPaymentMethod(),
+                sale.getCreatedAt()
+        );
+    }
+
+    /* ------------------------------------------------------------------
+     *  CONTEO DEL DÍA
+     * ------------------------------------------------------------------ */
+    @Transactional(readOnly = true)
+    public long countSalesToday(Long clientId) {
+
+        if (!clientRepo.existsById(clientId)) {
+            throw new IllegalArgumentException("Cliente no encontrado: " + clientId);
+        }
+
         LocalDate today = LocalDate.now();
         return saleRepo.countBetween(
                 clientId,
@@ -116,42 +161,18 @@ public class SalesService {
         );
     }
 
-    @Transactional(readOnly = true)
-    public List<SaleDto> findByClientId(Long clientId) {
-        if (!clientRepo.existsById(clientId)) {
-            throw new IllegalArgumentException("Cliente no encontrado: " + clientId);
-        }
-        return saleRepo.findByClientId(clientId).stream()
-                .map(this::toDto)
-                .collect(Collectors.toList());
-    }
-
-    private SaleDto toDto(Sale s) {
-        // Asumiendo que SaleDto puede manejar múltiples items
-        String itemNames = s.getItems().stream()
-                .map(item -> item.getProduct().getName())
-                .collect(Collectors.joining(", "));
-        int totalQuantity = s.getItems().stream()
-                .mapToInt(SaleItem::getQuantity)
-                .sum();
-
-        return new SaleDto(
-                s.getClient().getName(),
-                itemNames,
-                totalQuantity,
-                s.getTotalAmount(),
-                s.getPaymentMethod(),
-                s.getCreatedAt()
-        );
-    }
-
+    /* ------------------------------------------------------------------
+     *  RESÚMENES DIARIOS Y RENTABILIDAD
+     * ------------------------------------------------------------------ */
     @Transactional(readOnly = true)
     public List<SalesDailySummaryDto> summaryLastDays(Long clientId, int days) {
+
         if (!clientRepo.existsById(clientId)) {
             throw new IllegalArgumentException("Cliente no encontrado: " + clientId);
         }
 
         LocalDate start = LocalDate.now().minusDays(days - 1);
+
         List<Object[]> raw = saleRepo.findDailySummaryNative(
                 clientId, start.atStartOfDay());
 
@@ -174,20 +195,23 @@ public class SalesService {
 
     @Transactional(readOnly = true)
     public List<ProfitabilitySummaryDto> getProfitabilitySummaryLastDays(Long clientId, int days) {
+
         if (!clientRepo.existsById(clientId)) {
             throw new IllegalArgumentException("Cliente no encontrado: " + clientId);
         }
 
         LocalDate startDate = LocalDate.now().minusDays(days - 1);
-        List<Object[]> rawData = saleRepo.findDailyProfitabilitySummaryNative(clientId, startDate.atStartOfDay());
+
+        List<Object[]> rawData = saleRepo.findDailyProfitabilitySummaryNative(
+                clientId, startDate.atStartOfDay());
 
         Map<LocalDate, ProfitabilitySummaryDto> map = rawData.stream()
                 .collect(Collectors.toMap(
                         row -> ((java.sql.Date) row[0]).toLocalDate(),
                         row -> {
                             BigDecimal revenue = (BigDecimal) row[1];
-                            BigDecimal cost = (BigDecimal) row[2];
-                            BigDecimal profit = revenue.subtract(cost);
+                            BigDecimal cost    = (BigDecimal) row[2];
+                            BigDecimal profit  = revenue.subtract(cost);
                             return new ProfitabilitySummaryDto(
                                     ((java.sql.Date) row[0]).toLocalDate(),
                                     revenue,
@@ -207,11 +231,15 @@ public class SalesService {
         return result;
     }
 
-    public List<SalesByEmployeeDTO> getSalesByEmployee(Long clientId, String startDate, String endDate) {
-        // Convertimos las fechas de String a LocalDateTime
+    /* ------------------------------------------------------------------
+     *  VENTAS POR EMPLEADO
+     * ------------------------------------------------------------------ */
+    public List<SalesByEmployeeDTO> getSalesByEmployee(
+            Long clientId, String startDate, String endDate) {
+
         LocalDateTime from = LocalDate.parse(startDate).atStartOfDay();
         LocalDateTime to   = LocalDate.parse(endDate).atTime(LocalTime.MAX);
-        // Delegamos al repositorio
+
         return saleRepo.findSalesByEmployee(clientId, from, to);
     }
 }

@@ -1,5 +1,5 @@
 Listado de rutas de carpetas
-El n£mero de serie del volumen es 0000005F 1890:2582
+El n£mero de serie del volumen es 0000006D 1890:2582
 C:\USERS\LAUTARO\DESKTOP\GESTION-INVENTARIO\GESTION-INVENTARIO-BACKEND
 |   .gitattributes
 |   .gitignore
@@ -31,6 +31,14 @@ C:\USERS\LAUTARO\DESKTOP\GESTION-INVENTARIO\GESTION-INVENTARIO-BACKEND
 |   |   |           |   GestionInventarioApplication.java
 |   |   |           |   
 |   |   |           +---clientpanel
+|   |   |           |   +---controller
+|   |   |           |   |       ClientAlertController.java
+|   |   |           |   |       ClientEmployeeController.java
+|   |   |           |   |       ClientPanelController.java
+|   |   |           |   |       ClientProductController.java
+|   |   |           |   |       ClientSaleReturnController.java
+|   |   |           |   |       ClientSalesController.java
+|   |   |           |   |       
 |   |   |           |   +---dto
 |   |   |           |   |       AdminUserRequest.java
 |   |   |           |   |       AuthRequest.java
@@ -41,6 +49,8 @@ C:\USERS\LAUTARO\DESKTOP\GESTION-INVENTARIO\GESTION-INVENTARIO-BACKEND
 |   |   |           |   |       ClientListDto.java
 |   |   |           |   |       ClientRowDto.java
 |   |   |           |   |       CloseSessionRequest.java
+|   |   |           |   |       CreateEmployeeRequest.java
+|   |   |           |   |       EmployeeDto.java
 |   |   |           |   |       OpenSessionRequest.java
 |   |   |           |   |       ProductDto.java
 |   |   |           |   |       ProductRequest.java
@@ -55,6 +65,7 @@ C:\USERS\LAUTARO\DESKTOP\GESTION-INVENTARIO\GESTION-INVENTARIO-BACKEND
 |   |   |           |   |       SaleReturnRequest.java
 |   |   |           |   |       SalesByEmployeeDTO.java
 |   |   |           |   |       SalesDailySummaryDto.java
+|   |   |           |   |       UpdateEmployeeRequest.java
 |   |   |           |   |       
 |   |   |           |   +---model
 |   |   |           |   |       Alert.java
@@ -95,14 +106,11 @@ C:\USERS\LAUTARO\DESKTOP\GESTION-INVENTARIO\GESTION-INVENTARIO-BACKEND
 |   |   |           |       CashRegisterSessionController.java
 |   |   |           |       ClientController.java
 |   |   |           |       ClientDashboardController.java
-|   |   |           |       ClientPanelController.java
 |   |   |           |       ClientProviderController.java
-|   |   |           |       ClientSalesController.java
 |   |   |           |       ExpenseController.java
 |   |   |           |       ProductController.java
 |   |   |           |       ProviderController.java
 |   |   |           |       PurchaseOrderController.java
-|   |   |           |       SaleReturnController.java
 |   |   |           |       SalesController.java
 |   |   |           |       SalesMetricsController.java
 |   |   |           |       SpaForwardingController.java
@@ -128,6 +136,7 @@ C:\USERS\LAUTARO\DESKTOP\GESTION-INVENTARIO\GESTION-INVENTARIO-BACKEND
 |   |   |           |       CashRegisterSessionService.java
 |   |   |           |       ClientService.java
 |   |   |           |       DataInitializer.java
+|   |   |           |       EmployeeService.java
 |   |   |           |       ExpenseService.java
 |   |   |           |       ProductService.java
 |   |   |           |       ProviderService.java
@@ -195,6 +204,14 @@ C:\USERS\LAUTARO\DESKTOP\GESTION-INVENTARIO\GESTION-INVENTARIO-BACKEND
     |           |   GestionInventarioApplication.class
     |           |   
     |           +---clientpanel
+    |           |   +---controller
+    |           |   |       ClientAlertController.class
+    |           |   |       ClientEmployeeController.class
+    |           |   |       ClientPanelController.class
+    |           |   |       ClientProductController.class
+    |           |   |       ClientSaleReturnController.class
+    |           |   |       ClientSalesController.class
+    |           |   |       
     |           |   +---dto
     |           |   |       AdminUserRequest.class
     |           |   |       AuthRequest.class
@@ -205,6 +222,8 @@ C:\USERS\LAUTARO\DESKTOP\GESTION-INVENTARIO\GESTION-INVENTARIO-BACKEND
     |           |   |       ClientListDto.class
     |           |   |       ClientRowDto.class
     |           |   |       CloseSessionRequest.class
+    |           |   |       CreateEmployeeRequest.class
+    |           |   |       EmployeeDto.class
     |           |   |       OpenSessionRequest.class
     |           |   |       ProductDto.class
     |           |   |       ProductRequest.class
@@ -219,6 +238,7 @@ C:\USERS\LAUTARO\DESKTOP\GESTION-INVENTARIO\GESTION-INVENTARIO-BACKEND
     |           |   |       SaleReturnRequest.class
     |           |   |       SalesByEmployeeDTO.class
     |           |   |       SalesDailySummaryDto.class
+    |           |   |       UpdateEmployeeRequest.class
     |           |   |       
     |           |   +---model
     |           |   |       Alert.class
@@ -259,14 +279,11 @@ C:\USERS\LAUTARO\DESKTOP\GESTION-INVENTARIO\GESTION-INVENTARIO-BACKEND
     |           |       AlertController.class
     |           |       AuthController.class
     |           |       CashRegisterSessionController.class
-    |           |       ClientDashboardController.class
     |           |       ClientProviderController.class
-    |           |       ClientSalesController.class
     |           |       ExpenseController.class
     |           |       ProductController.class
     |           |       ProviderController.class
     |           |       PurchaseOrderController.class
-    |           |       SaleReturnController.class
     |           |       SalesMetricsController.class
     |           |       SpaForwardingController.class
     |           |       
@@ -291,6 +308,7 @@ C:\USERS\LAUTARO\DESKTOP\GESTION-INVENTARIO\GESTION-INVENTARIO-BACKEND
     |           |       CashRegisterSessionService.class
     |           |       ClientService.class
     |           |       DataInitializer.class
+    |           |       EmployeeService.class
     |           |       ExpenseService.class
     |           |       ProductService.class
     |           |       ProviderService.class

@@ -1,4 +1,3 @@
-// src/main/java/grupo5/gestion_inventario/service/EmployeeService.java
 package grupo5.gestion_inventario.service;
 
 import grupo5.gestion_inventario.clientpanel.dto.CreateEmployeeRequest;
@@ -8,6 +7,7 @@ import grupo5.gestion_inventario.model.Client;
 import grupo5.gestion_inventario.model.Employee;
 import grupo5.gestion_inventario.repository.EmployeeRepository;
 import grupo5.gestion_inventario.repository.ClientRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,27 +19,41 @@ public class EmployeeService {
 
     private final EmployeeRepository employeeRepo;
     private final ClientRepository clientRepo;
+    private final PasswordEncoder passwordEncoder;
 
-    public EmployeeService(EmployeeRepository employeeRepo, ClientRepository clientRepo) {
-        this.employeeRepo = employeeRepo;
-        this.clientRepo   = clientRepo;
+    public EmployeeService(EmployeeRepository employeeRepo,
+                           ClientRepository clientRepo,
+                           PasswordEncoder passwordEncoder) {
+        this.employeeRepo    = employeeRepo;
+        this.clientRepo      = clientRepo;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public List<EmployeeDto> findByClientId(Long clientId) {
-        return employeeRepo.findAll().stream()
-                .filter(e -> e.getClient().getId().equals(clientId))
+        return employeeRepo.findByClientId(clientId).stream()
                 .map(EmployeeDto::fromEntity)
                 .collect(Collectors.toList());
     }
 
     @Transactional
     public EmployeeDto create(Long clientId, CreateEmployeeRequest req) {
+        if (employeeRepo.existsByEmail(req.getEmail())) {
+            throw new RuntimeException("Email ya usado");
+        }
+
         Client client = clientRepo.findById(clientId)
                 .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+
+        String encodedPassword = passwordEncoder.encode(req.getPassword());
+
         Employee e = new Employee(
-                req.getName(), req.getEmail(),
-                req.getPasswordHash(), req.getRole(), client
+                req.getName(),
+                req.getEmail(),
+                encodedPassword,
+                req.getRole(),
+                client
         );
+
         Employee saved = employeeRepo.save(e);
         return EmployeeDto.fromEntity(saved);
     }
@@ -51,12 +65,14 @@ public class EmployeeService {
         if (!e.getClient().getId().equals(clientId)) {
             throw new RuntimeException("No autorizado");
         }
+
         e.setName(req.getName());
         e.setRole(req.getRole());
-        // Opcional: cambiar contraseña si viene en req
+        // Cifrar nueva contraseña si se proporcionó
         if (req.getPasswordHash() != null) {
-            e.setPasswordHash(req.getPasswordHash());
+            e.setPasswordHash(passwordEncoder.encode(req.getPasswordHash()));
         }
+
         Employee saved = employeeRepo.save(e);
         return EmployeeDto.fromEntity(saved);
     }
