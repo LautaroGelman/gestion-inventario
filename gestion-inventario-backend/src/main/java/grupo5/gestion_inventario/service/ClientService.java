@@ -1,36 +1,66 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package grupo5.gestion_inventario.service;
 
 import java.util.List;
+
+import grupo5.gestion_inventario.clientpanel.dto.ClientCreateRequest;
 import grupo5.gestion_inventario.model.Client;
-import org.springframework.stereotype.Service;
+import grupo5.gestion_inventario.model.Employee;
+import grupo5.gestion_inventario.model.EmployeeRole;
 import grupo5.gestion_inventario.repository.ClientRepository;
-
-/**
- *
- * @author lautaro
- */
-
+import grupo5.gestion_inventario.repository.EmployeeRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ClientService {
 
-    private final ClientRepository repo;
+    private final ClientRepository   repo;
+    private final EmployeeRepository employeeRepo;
+    private final PasswordEncoder    passwordEncoder;
 
-    public ClientService(ClientRepository repo) {
-        this.repo = repo;
+    public ClientService(ClientRepository repo,
+                         EmployeeRepository employeeRepo,
+                         PasswordEncoder passwordEncoder) {
+        this.repo            = repo;
+        this.employeeRepo    = employeeRepo;
+        this.passwordEncoder = passwordEncoder;
     }
 
-    public Client create(Client c) {
-        return repo.save(c);
+    /** Crea un cliente y su empleado ADMINISTRADOR compartiendo la misma contraseña. */
+    @Transactional
+    public Client create(ClientCreateRequest req) {
+
+        // 1) Codificar la contraseña UNA sola vez
+        String hash = passwordEncoder.encode(req.getRawPassword());
+
+        // 2) Guardar el CLIENTE
+        Client cli = new Client();
+        cli.setName(req.getName());
+        cli.setEmail(req.getEmail());
+        cli.setTelefono(req.getTelefono());
+        cli.setPlan(req.getPlan());
+        cli.setEstado(req.getEstado());
+        cli.setPasswordHash(hash);
+        Client saved = repo.save(cli);
+
+        // 3) Guardar el EMPLOYEE administrador
+        Employee admin = new Employee(
+                req.getName() + " Admin",   // nombre
+                req.getEmail(),             // mismo correo
+                hash,                       // mismo hash
+                EmployeeRole.ADMINISTRADOR,
+                saved                       // relación
+        );
+
+        employeeRepo.save(admin);
+
+        return saved;
     }
 
-    public List<Client> findAll() {
-        return repo.findAll();
-    }
+    /* ---------- CRUD y utilidades ---------- */
+
+    public List<Client> findAll() { return repo.findAll(); }
 
     public Client findById(Long id) {
         return repo.findById(id)
@@ -44,28 +74,18 @@ public class ClientService {
         return repo.save(c);
     }
 
-    public void delete(Long id) {
-        repo.deleteById(id);
-    }
+    public void delete(Long id) { repo.deleteById(id); }
 
-    /** Cuenta todos los clientes */
-    public long countAll() {
-        return repo.count();
-    }
+    public long countAll() { return repo.count(); }
 
-    /** Cuenta clientes filtrados por plan */
-    public long countByPlan(String plan) {
-        return repo.countByPlan(plan);
-    }
+    public long countByPlan(String plan) { return repo.countByPlan(plan); }
 
-    /** Marca un cliente como INACTIVO */
     public void inactivate(Long id) {
         Client c = findById(id);
         c.setEstado("INACTIVO");
         repo.save(c);
     }
 
-    /** Marca un cliente como ACTIVO */
     public void activate(Long id) {
         Client c = findById(id);
         c.setEstado("ACTIVO");

@@ -34,7 +34,6 @@ public class ProductService {
         product.setDescription(req.getDescription());
         product.setCost(req.getCost());
         product.setPrice(req.getPrice());
-        // CORRECCIÓN: Usar el método estandarizado setQuantity
         product.setQuantity(req.getQuantity());
         product.setLowStockThreshold(
                 req.getLowStockThreshold() != null ? req.getLowStockThreshold() : 0
@@ -54,7 +53,6 @@ public class ProductService {
                     product.setDescription(req.getDescription());
                     product.setCost(req.getCost());
                     product.setPrice(req.getPrice());
-                    // CORRECCIÓN: Usar el método estandarizado setQuantity
                     product.setQuantity(req.getQuantity());
                     product.setLowStockThreshold(
                             req.getLowStockThreshold() != null ? req.getLowStockThreshold() : 0
@@ -70,6 +68,16 @@ public class ProductService {
             throw new IllegalArgumentException("Cliente no encontrado: " + clientId);
         }
         return productRepo.findByClientId(clientId).stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductDto> findDeletedByClient(Long clientId) {
+        if (!clientRepo.existsById(clientId)) {
+            throw new IllegalArgumentException("Cliente no encontrado: " + clientId);
+        }
+        return productRepo.findDeletedByClient(clientId).stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
@@ -92,6 +100,17 @@ public class ProductService {
                 .orElse(false);
     }
 
+    @Transactional
+    public boolean restoreProduct(Long productId, Client client) {
+        return productRepo.findById(productId)
+                .filter(product -> product.getClient().getId().equals(client.getId()))
+                .map(product -> {
+                    productRepo.restore(client.getId(), productId);
+                    return true;
+                })
+                .orElse(false);
+    }
+
     @Transactional(readOnly = true)
     public long countLowStock(Long clientId) {
         if (!clientRepo.existsById(clientId)) {
@@ -106,7 +125,6 @@ public class ProductService {
                 p.getCode(),
                 p.getName(),
                 p.getDescription(),
-                // CORRECCIÓN: Usar el método estandarizado getQuantity
                 p.getQuantity(),
                 p.getCost(),
                 p.getPrice()

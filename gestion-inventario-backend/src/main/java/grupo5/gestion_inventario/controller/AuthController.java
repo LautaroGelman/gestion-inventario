@@ -1,4 +1,3 @@
-// src/main/java/grupo5/gestion_inventario/controller/AuthController.java
 package grupo5.gestion_inventario.controller;
 
 import grupo5.gestion_inventario.config.JwtUtil;
@@ -7,10 +6,10 @@ import grupo5.gestion_inventario.clientpanel.dto.AuthResponse;
 import grupo5.gestion_inventario.model.Client;
 import grupo5.gestion_inventario.model.Employee;
 import grupo5.gestion_inventario.model.EmployeeRole;
-import grupo5.gestion_inventario.superpanel.repository.AdminUserRepository;
+import grupo5.gestion_inventario.superpanel.model.AdminUser;
 import grupo5.gestion_inventario.repository.ClientRepository;
 import grupo5.gestion_inventario.repository.EmployeeRepository;
-import grupo5.gestion_inventario.superpanel.model.AdminUser;
+import grupo5.gestion_inventario.superpanel.repository.AdminUserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -66,11 +65,15 @@ public class AuthController {
         Long clientId = null;
         Long employeeId = null;
 
+        // Ahora incluimos los nuevos roles de empleado
         if (roles.stream().anyMatch(r ->
                 r.equals("ROLE_ADMINISTRADOR") ||
                         r.equals("ROLE_CAJERO") ||
-                        r.equals("ROLE_MULTIFUNCION"))) {
-            // Usuario es un Employee (administrador, cajero o multifunción)
+                        r.equals("ROLE_MULTIFUNCION") ||
+                        r.equals("ROLE_INVENTARIO") ||
+                        r.equals("ROLE_VENTAS_INVENTARIO")
+        )) {
+            // Usuario es un Employee
             Employee employee = employeeRepository
                     .findByEmail(userDetails.getUsername())
                     .orElseThrow(() ->
@@ -88,7 +91,6 @@ public class AuthController {
                             new Exception("Cliente no encontrado: " + userDetails.getUsername())
                     );
 
-            // Buscar su Employee ADMINISTRADOR
             Employee ownerEmp = employeeRepository
                     .findByClientIdAndRole(client.getId(), EmployeeRole.ADMINISTRADOR)
                     .orElseThrow(() ->

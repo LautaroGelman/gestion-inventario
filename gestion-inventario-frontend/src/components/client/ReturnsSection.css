@@ -1,0 +1,167 @@
+/* src/components/client/ReturnsSection.css */
+
+.returns-section {
+    padding: 1rem 1.5rem;
+}
+
+/* ─ Top bar ───────────────────────────────────── */
+.top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.btn-primary,
+.btn-secondary {
+    padding: 0.45rem 1rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.btn-primary {
+    background: #1976d2;
+    color: #fff;
+}
+.btn-primary:hover {
+    background: #135ba9;
+}
+.btn-secondary {
+    background: #6c6f73;
+    color: #fff;
+}
+.btn-secondary:hover {
+    background: #54575a;
+}
+
+/* ─ Listado ──────────────────────────────────── */
+.filters {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.8rem;
+}
+.filters input {
+    padding: 0.35rem 0.6rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    width: 180px;
+}
+.filters button {
+    padding: 0.35rem 0.9rem;
+    border: none;
+    background: #1976d2;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.filters button:disabled {
+    background: #8ab4f8;
+    cursor: default;
+}
+.filters button:hover:not(:disabled) {
+    background: #125aa9;
+}
+
+/* ─ Tabla ─────────────────────────────────────── */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.6rem;
+}
+th,
+td {
+    border: 1px solid #ddd;
+    padding: 0.5rem;
+    text-align: center;
+}
+th {
+    background: #f4f6f8;
+    font-weight: 600;
+}
+tr:nth-child(even) {
+    background: #fafbfc;
+}
+
+/* ─ Formulario ───────────────────────────────── */
+.search-sale {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.8rem;
+}
+.search-sale input {
+    padding: 0.35rem 0.6rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    width: 140px;
+}
+.search-sale button {
+    padding: 0.35rem 0.9rem;
+    border: none;
+    background: #1976d2;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.search-sale button:disabled {
+    background: #8ab4f8;
+    cursor: default;
+}
+
+.return-form table {
+    margin-top: 0.5rem;
+}
+.reason-field {
+    margin: 0.8rem 0;
+    display: flex;
+    flex-direction: column;
+}
+.reason-field label {
+    margin-bottom: 0.3rem;
+}
+.reason-field input {
+    padding: 0.35rem 0.6rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+/* ─ Botón enviar ────────────────────────────── */
+.btn-submit {
+    padding: 0.45rem 1rem;
+    border: none;
+    background: #1976d2;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 0.6rem;
+}
+.btn-submit:hover {
+    background: #135ba9;
+}
+
+/* ─ Mensajes ─────────────────────────────────── */
+.msg {
+    margin-top: 0.6rem;
+    font-weight: 600;
+    color: #d32f2f;
+}
+
+/* ─ Responsive ───────────────────────────────── */
+@media (max-width: 600px) {
+    .filters,
+    .search-sale {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .filters input,
+    .search-sale input,
+    .filters button,
+    .search-sale button {
+        width: 100%;
+    }
+    th,
+    td {
+        font-size: 0.85rem;
+    }
+}

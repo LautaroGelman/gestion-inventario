@@ -1,14 +1,14 @@
+// src/main/java/grupo5/gestion_inventario/controller/AdminClientController.java
 package grupo5.gestion_inventario.controller;
 
-import grupo5.gestion_inventario.clientpanel.dto.ClientCreateRequest;
-import grupo5.gestion_inventario.clientpanel.dto.ClientListDto;
-import grupo5.gestion_inventario.clientpanel.dto.ClientRowDto;
+import grupo5.gestion_inventario.clientpanel.dto.*;
 import grupo5.gestion_inventario.model.Client;
 import grupo5.gestion_inventario.service.ClientService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,56 +16,24 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/admin/clients")
 @PreAuthorize("hasRole('ADMIN')")
+@RequiredArgsConstructor
 public class AdminClientController {
 
-    private final ClientService    clientService;
-    private final PasswordEncoder  passwordEncoder;
+    private final ClientService clientService;
 
-    public AdminClientController(ClientService clientService,
-                                 PasswordEncoder passwordEncoder) {
-        this.clientService   = clientService;
-        this.passwordEncoder = passwordEncoder;
-    }
-
-    /**
-     * Crea un nuevo cliente (solo ADMIN) y devuelve un DTO sin exponer el hash.
-     */
+    /** Alta de cliente + empleado ADMINISTRADOR  */
     @PostMapping
-    public ResponseEntity<ClientRowDto> createClient(@RequestBody ClientCreateRequest req) {
-        Client client = new Client();
-        client.setName(      req.getName() );
-        client.setEmail(     req.getEmail() );
-        client.setPasswordHash(passwordEncoder.encode(req.getPassword()));
-        client.setTelefono(  req.getTelefono() );
+    public ResponseEntity<ClientRowDto> createClient(
+            @RequestBody @Valid ClientCreateRequest req) {
 
-        // --- CORRECCIÓN ---
-        // Asignamos un estado por defecto si no se proporciona en la solicitud
-        // para evitar el NullPointerException.
-        String plan = req.getPlan();
-        String estado = req.getEstado();
-
-        client.setPlan(plan != null ? plan.toUpperCase() : "BASICO"); // Asigna BASICO si el plan es nulo
-        client.setEstado(estado != null ? estado.toUpperCase() : "ACTIVO"); // Asigna ACTIVO si el estado es nulo
-
-        Client saved = clientService.create(client);
-
-        ClientRowDto dto = new ClientRowDto(
-                saved.getId(),
-                saved.getName(),
-                saved.getEmail(),
-                saved.getTelefono(),
-                saved.getPlan(),
-                saved.getEstado()
-        );
+        Client saved = clientService.create(req);           // ← usa DTO, no Client
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(dto);
+                .body(ClientRowDto.fromEntity(saved));      // mapper estático
     }
 
-    /**
-     * Lista todos los clientes con contadores por plan.
-     */
+    /** Listado con contadores  */
     @GetMapping
     public ResponseEntity<ClientListDto> listClients() {
         long total      = clientService.countAll();
@@ -73,39 +41,23 @@ public class AdminClientController {
         long intermedio = clientService.countByPlan("INTERMEDIO");
         long premium    = clientService.countByPlan("PREMIUM");
 
-        List<ClientRowDto> rows = clientService.findAll().stream()
-                .map(c -> new ClientRowDto(
-                        c.getId(),
-                        c.getName(),
-                        c.getEmail(),
-                        c.getTelefono(),
-                        c.getPlan(),
-                        c.getEstado()
-                ))
+        List<ClientRowDto> rows = clientService.findAll()
+                .stream()
+                .map(ClientRowDto::fromEntity)
                 .toList();
 
         ClientListDto dto = new ClientListDto(
-                total,
-                basico,
-                intermedio,
-                premium,
-                rows
-        );
+                total, basico, intermedio, premium, rows);
+
         return ResponseEntity.ok(dto);
     }
 
-    /**
-     * Marca un cliente como INACTIVO.
-     */
     @PatchMapping("/{id}/inactive")
     public ResponseEntity<Void> inactivateClient(@PathVariable Long id) {
         clientService.inactivate(id);
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Marca un cliente como ACTIVO.
-     */
     @PatchMapping("/{id}/activate")
     public ResponseEntity<Void> activateClient(@PathVariable Long id) {
         clientService.activate(id);

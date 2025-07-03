@@ -1,4 +1,3 @@
-// src/components/client/EmployeesSection.jsx
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import apiClient from '../../services/api';
@@ -33,7 +32,8 @@ export default function EmployeesSection() {
     const handleEditChange = e => setEditForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
     const handleSubmit = async e => {
-        e.preventDefault(); setError('');
+        e.preventDefault();
+        setError('');
         try {
             const payload = { ...form, role: form.role.replace(/^ROLE_/, '') };
             await apiClient.post(`/client-panel/${user.clientId}/employees`, payload);
@@ -99,8 +99,9 @@ export default function EmployeesSection() {
                                     <input className="input" name="email" value={editForm.email} onChange={handleEditChange} placeholder="Email" />
                                     <select className="select" name="role" value={editForm.role} onChange={handleEditChange}>
                                         <option value="ROLE_CAJERO">Cajero</option>
+                                        <option value="ROLE_INVENTARIO">Inventario</option>
+                                        <option value="ROLE_VENTAS_INVENTARIO">Ventas + Inventario</option>
                                         <option value="ROLE_MULTIFUNCION">Multifunción</option>
-                                        <option value="ROLE_ADMINISTRADOR">Administrador</option>
                                     </select>
                                     <button className="btn btn-primary" onClick={() => submitEdit(e.id)}>Guardar</button>
                                     <button className="btn btn-secondary" onClick={cancelEditing}>Cancelar</button>
@@ -147,8 +148,9 @@ export default function EmployeesSection() {
                     </div>
                     <select className="select" name="role" value={form.role} onChange={handleChange}>
                         <option value="ROLE_CAJERO">Cajero</option>
+                        <option value="ROLE_INVENTARIO">Inventario</option>
+                        <option value="ROLE_VENTAS_INVENTARIO">Ventas + Inventario</option>
                         <option value="ROLE_MULTIFUNCION">Multifunción</option>
-                        <option value="ROLE_ADMINISTRADOR">Administrador</option>
                     </select>
                     <button type="submit" className="btn btn-primary">Crear empleado</button>
                 </form>

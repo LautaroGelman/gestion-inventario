@@ -2,30 +2,25 @@
 package grupo5.gestion_inventario.clientpanel.dto;
 
 import grupo5.gestion_inventario.model.EmployeeRole;
+import lombok.Getter;
+import lombok.Setter;
 
+/**
+ * Datos que se pueden actualizar de un empleado.
+ * Envía sólo los campos que quieras modificar.
+ */
+@Getter
+@Setter
 public class UpdateEmployeeRequest {
+
+    /** Nuevo nombre (opcional). */
     private String name;
-    private String passwordHash; // opcional
+
+    /** Nueva contraseña en texto plano (opcional). */
+    private String passwordHash;
+
+    /** Nuevo rol (opcional). */
     private EmployeeRole role;
 
-    public String getName() {
-        return name;
-    }
-    public void setName(String name) {
-        this.name = name;
-    }
 
-    public String getPasswordHash() {
-        return passwordHash;
-    }
-    public void setPasswordHash(String passwordHash) {
-        this.passwordHash = passwordHash;
-    }
-
-    public EmployeeRole getRole() {
-        return role;
-    }
-    public void setRole(EmployeeRole role) {
-        this.role = role;
-    }
 }

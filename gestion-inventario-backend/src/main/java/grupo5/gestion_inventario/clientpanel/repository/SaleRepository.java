@@ -1,8 +1,8 @@
 package grupo5.gestion_inventario.clientpanel.repository;
 
-import grupo5.gestion_inventario.clientpanel.dto.SalesByEmployeeDTO; // Importamos el DTO
+import grupo5.gestion_inventario.clientpanel.dto.SalesByEmployeeDTO;
 import grupo5.gestion_inventario.clientpanel.model.Sale;
-import grupo5.gestion_inventario.model.Client; // Añadir si falta
+import grupo5.gestion_inventario.model.Client;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,13 +10,15 @@ import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface SaleRepository extends JpaRepository<Sale, Long> {
 
-    // --- TUS MÉTODOS EXISTENTES (SE CONSERVAN INTACTOS) ---
+    Optional<Sale> findByIdAndClientId(Long id, Long clientId);
+
     List<Sale> findByClientId(Long clientId);
 
-    List<Sale> findByClient(Client client); // Añadido para consistencia con el servicio
+    List<Sale> findByClient(Client client);
 
     @Query("""
         SELECT COUNT(s) FROM Sale s
@@ -54,7 +56,6 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     """, nativeQuery = true)
     List<Object[]> findDailyProfitabilitySummaryNative(@Param("clientId") Long clientId, @Param("startDate") LocalDateTime startDate);
 
-    // --- !! NUEVA CONSULTA AÑADIDA AQUÍ !! ---
     @Query("""
         SELECT new grupo5.gestion_inventario.clientpanel.dto.SalesByEmployeeDTO(e.id, e.name, SUM(s.totalAmount), COUNT(s))
         FROM Sale s JOIN s.employee e
@@ -64,15 +65,11 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     """)
     List<SalesByEmployeeDTO> findSalesByEmployee(@Param("clientId") Long clientId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 
-        // --- (TODAS TUS CONSULTAS EXISTENTES SE MANTIENEN AQUÍ) ---
-
-        // --- !! NUEVA CONSULTA AÑADIDA AL FINAL !! ---
-        @Query("SELECT COALESCE(SUM(s.totalAmount), 0) FROM Sale s " +
-                "WHERE s.employee.id = :employeeId AND s.createdAt BETWEEN :startDate AND :endDate")
-        BigDecimal sumTotalAmountByEmployeeAndDateBetween(
-                @Param("employeeId") Long employeeId,
-                @Param("startDate") LocalDateTime startDate,
-                @Param("endDate") LocalDateTime endDate
-        );
+    @Query("SELECT COALESCE(SUM(s.totalAmount), 0) FROM Sale s " +
+            "WHERE s.employee.id = :employeeId AND s.createdAt BETWEEN :startDate AND :endDate")
+    BigDecimal sumTotalAmountByEmployeeAndDateBetween(
+            @Param("employeeId") Long employeeId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
 }
-

@@ -28,10 +28,8 @@ public class ClientSalesController {
     }
 
     private Client validateClient(Long clientId, Authentication auth) {
-        // 1) Cargar al empleado autenticado
         Employee emp = employeeRepo.findByEmail(auth.getName())
                 .orElseThrow(() -> new RuntimeException("Empleado no encontrado"));
-        // 2) Obtener su cliente y verificar que coincide con el path
         Client client = emp.getClient();
         if (!client.getId().equals(clientId)) {
             throw new AccessDeniedException("No autorizado para este cliente");
@@ -40,10 +38,10 @@ public class ClientSalesController {
     }
 
     /**
-     * Listar todas las ventas (incluye ROLE_CAJERO)
+     * Listar todas las ventas
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('CLIENT','ADMINISTRADOR','CAJERO','MULTIFUNCION')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','CAJERO','VENTAS_INVENTARIO','MULTIFUNCION')")
     public ResponseEntity<List<SaleDto>> listSales(
             @PathVariable Long clientId,
             Authentication auth) {
@@ -54,10 +52,10 @@ public class ClientSalesController {
     }
 
     /**
-     * Crear una nueva venta (AHORA INCLUYE ROLE_CAJERO)
+     * Crear una nueva venta
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('CLIENT','ADMINISTRADOR','CAJERO','MULTIFUNCION')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','CAJERO','VENTAS_INVENTARIO','MULTIFUNCION')")
     public ResponseEntity<SaleDto> createSale(
             @PathVariable Long clientId,
             @RequestBody SaleRequest req,
@@ -71,5 +69,20 @@ public class ClientSalesController {
 
         SaleDto created = salesService.createSale(clientId, req);
         return ResponseEntity.ok(created);
+    }
+
+    /**
+     * Obtener una venta por ID
+     */
+    @GetMapping("/{saleId}")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','CAJERO','VENTAS_INVENTARIO','MULTIFUNCION')")
+    public ResponseEntity<SaleDto> getSaleById(
+            @PathVariable Long clientId,
+            @PathVariable Long saleId,
+            Authentication auth) {
+
+        validateClient(clientId, auth);
+        SaleDto sale = salesService.findByIdAndClientId(clientId, saleId);
+        return ResponseEntity.ok(sale);
     }
 }

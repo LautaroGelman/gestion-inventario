@@ -1,23 +1,40 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+
+// src/pages/ClientPanelPage.jsx
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCashSession } from '../hooks/useCashSession';
 
 import CashSessionModal from '../components/client/CashSessionModal';
-import Notifications from '../components/Notifications';
+import Notifications    from '../components/Notifications';
 
 import DashboardSection from '../components/client/DashboardSection';
 import InventorySection from '../components/client/InventorySection';
-import SalesSection from '../components/client/SalesSection';
+import SalesSection     from '../components/client/SalesSection';
 import ProvidersSection from '../components/client/ProvidersSection';
-import ReportsSection from '../components/client/ReportsSection';
+import ReportsSection   from '../components/client/ReportsSection';
 import EmployeesSection from '../components/client/EmployeesSection';
-import ReturnsSection from '../components/client/ReturnsSection';
+import ReturnsSection   from '../components/client/ReturnsSection';
+
 import './ClientPanelPage.css';
 
+/* -------------------- CONSTANTES -------------------- */
+const ROLE_TO_SECTIONS = {
+    CLIENT:            ['dashboard','inventory','sales','providers','reports','employees','returns'],
+    ADMINISTRADOR:     ['dashboard','inventory','sales','providers','reports','employees','returns'],
+    MULTIFUNCION:      ['dashboard','inventory','sales','providers','reports','employees','returns'],
+    CAJERO:            ['inventory','sales','returns'],
+    INVENTARIO:        ['inventory','providers'],
+    VENTAS_INVENTARIO: ['inventory','sales','providers','returns']
+};
+const cleanRole = r => r.replace(/^ROLE_/, '');
+
+/* -------------------- COMPONENTE -------------------- */
 function ClientPanelPage() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
+
+    /* ----------- HOOK personalizado de caja ----------- */
     const {
         session,
         isModalOpen,
@@ -28,51 +45,66 @@ function ClientPanelPage() {
         setModalOpen
     } = useCashSession();
 
-    const roleKey = user?.role?.replace(/^ROLE_/, '') || '';
+    /* ---------------- ROLES & PERMISOS ---------------- */
+    const roles = useMemo(() => user?.roles ?? [], [user]);
 
-    // Mapeo actualizado de roles a secciones
-    const ROLES = {
-        CLIENT: ['dashboard', 'inventory', 'sales', 'providers', 'reports', 'employees', 'returns'],
-        ADMINISTRADOR: ['dashboard', 'inventory', 'sales', 'providers', 'reports', 'employees', 'returns'],
-        MULTIFUNCION: ['dashboard', 'inventory', 'sales', 'providers', 'reports', 'employees', 'returns'],
-        CAJERO: ['inventory', 'sales', 'returns']
-    };
+    const sectionsAllowed = useMemo(() => (
+        [...new Set(
+            roles
+                .map(cleanRole)
+                .flatMap(r => ROLE_TO_SECTIONS[r] || [])
+        )]
+    ), [roles]);
 
-    const userCanView = (section) => ROLES[roleKey]?.includes(section);
+    const userCanView = section => sectionsAllowed.includes(section);
 
+    const canHandleCash = useMemo(() => (
+        roles.some(r =>
+            ['ROLE_CAJERO','ROLE_VENTAS_INVENTARIO','ROLE_MULTIFUNCION'].includes(r)
+        )
+    ), [roles]);
+
+    const isAdminRole = useMemo(() => (
+        roles.some(r =>
+            ['ROLE_CLIENT','ROLE_ADMINISTRADOR','ROLE_MULTIFUNCION'].includes(r)
+        )
+    ), [roles]);
+
+    /* ----------------- SECCIÓN ACTIVA ----------------- */
     const [activeSection, setActiveSection] = useState('dashboard');
 
     useEffect(() => {
-        if (user) {
-            const defaultSection = userCanView('dashboard')
-                ? 'dashboard'
-                : (ROLES[roleKey]?.[0] || 'inventory');
-            setActiveSection(defaultSection);
-        }
-    }, [user, roleKey]);
+        if (sectionsAllowed.length === 0) return;
+
+        const defaultSection = sectionsAllowed.includes('dashboard')
+            ? 'dashboard'
+            : sectionsAllowed[0];
+
+        setActiveSection(defaultSection);
+    }, [sectionsAllowed]);
 
     useEffect(() => {
-        if (user && !userCanView(activeSection)) {
-            setActiveSection(ROLES[roleKey]?.[0] || 'inventory');
+        if (!sectionsAllowed.includes(activeSection)) {
+            setActiveSection(
+                sectionsAllowed.includes('dashboard') ? 'dashboard' : sectionsAllowed[0]
+            );
         }
-    }, [user, roleKey, activeSection]);
+    }, [activeSection, sectionsAllowed]);
 
+    /* ------------- RENDER DE CADA SECCIÓN ------------- */
     const renderSection = () => {
         switch (activeSection) {
-            case 'inventory': return <InventorySection />;
-            case 'sales':     return <SalesSection />;
-            case 'providers': return <ProvidersSection />;
-            case 'employees': return <EmployeesSection />;
-            case 'returns':   return <ReturnsSection />;
-            case 'reports':   return <ReportsSection />;
-            default:          return <DashboardSection />;
+            case 'inventory':  return <InventorySection />;
+            case 'sales':      return <SalesSection />;
+            case 'providers':  return <ProvidersSection />;
+            case 'employees':  return <EmployeesSection />;
+            case 'returns':    return <ReturnsSection />;
+            case 'reports': return <ReportsSection clientId={user?.clientId} />;
+            default:           return <DashboardSection />;
         }
     };
 
-    if (!user) {
-        return <div>Cargando...</div>;
-    }
-
+    /* -------------------- HANDLERS -------------------- */
     const goToNewEmployee = () => navigate('/employee-form');
     const goToNewSale     = () => navigate('/sale-form');
     const goToReturnSale  = () => navigate('/sale-form');
@@ -84,12 +116,13 @@ function ClientPanelPage() {
         navigate('/login', { replace: true });
     };
 
-    const isCashierRole = roleKey === 'CAJERO';
-    const isAdminRole   = ['CLIENT', 'ADMINISTRADOR', 'MULTIFUNCION'].includes(roleKey);
+    /* ---------------------- UI ------------------------ */
+    if (!user) return <div>Cargando...</div>;
 
     return (
         <>
-            {isModalOpen && isCashierRole && (
+            {/* Modal de apertura/cierre de caja */}
+            {isModalOpen && canHandleCash && (
                 <CashSessionModal
                     mode={modalMode}
                     onOpen={handleOpenSession}
@@ -100,54 +133,37 @@ function ClientPanelPage() {
             )}
 
             <div className="client-panel">
+                {/* -------------- SIDEBAR / MENÚ -------------- */}
                 <aside className="sidebar">
                     <div className="sidebar-header">
                         <h3>Hola, {user.employeeName || 'Usuario'}</h3>
-                        <div className="header-actions">
-                            {isAdminRole && <Notifications />}
-                        </div>
+                        {isAdminRole && <Notifications />}
                     </div>
 
                     <nav className="sidebar-nav">
-                        {userCanView('dashboard') && (
-                            <button onClick={() => setActiveSection('dashboard')} className={activeSection === 'dashboard' ? 'active' : ''}>
-                                Dashboard
+                        {sectionsAllowed.map(section => (
+                            <button
+                                key={section}
+                                onClick={() => setActiveSection(section)}
+                                className={activeSection === section ? 'active' : ''}
+                            >
+                                {({
+                                    dashboard:  'Dashboard',
+                                    inventory:  'Inventario',
+                                    sales:      'Ventas',
+                                    providers:  'Proveedores',
+                                    reports:    'Reportes',
+                                    employees:  'Empleados',
+                                    returns:    'Devoluciones'
+                                })[section]}
                             </button>
-                        )}
-                        {userCanView('inventory') && (
-                            <button onClick={() => setActiveSection('inventory')} className={activeSection === 'inventory' ? 'active' : ''}>
-                                Inventario
-                            </button>
-                        )}
-                        {userCanView('sales') && (
-                            <button onClick={() => setActiveSection('sales')} className={activeSection === 'sales' ? 'active' : ''}>
-                                Ventas
-                            </button>
-                        )}
-                        {userCanView('providers') && (
-                            <button onClick={() => setActiveSection('providers')} className={activeSection === 'providers' ? 'active' : ''}>
-                                Proveedores
-                            </button>
-                        )}
-                        {userCanView('reports') && (
-                            <button onClick={() => setActiveSection('reports')} className={activeSection === 'reports' ? 'active' : ''}>
-                                Reportes
-                            </button>
-                        )}
-                        {userCanView('employees') && (
-                            <button onClick={() => setActiveSection('employees')} className={activeSection === 'employees' ? 'active' : ''}>
-                                Empleados
-                            </button>
-                        )}
-                        {userCanView('returns') && (
-                            <button onClick={() => setActiveSection('returns')} className={activeSection === 'returns' ? 'active' : ''}>
-                                Devoluciones
-                            </button>
-                        )}
+                        ))}
                     </nav>
 
                     <div className="quick-actions">
-                        {isAdminRole && <button onClick={goToNewEmployee}>+ Nuevo empleado</button>}
+                        {isAdminRole && (
+                            <button onClick={goToNewEmployee}>+ Nuevo empleado</button>
+                        )}
                         {userCanView('sales') && (
                             <>
                                 <button onClick={goToNewSale}>+ Registrar venta</button>
@@ -157,7 +173,7 @@ function ClientPanelPage() {
                     </div>
 
                     <div className="sidebar-footer">
-                        {isCashierRole && session && (
+                        {canHandleCash && session && (
                             <button onClick={showCloseModal} className="cash-button">
                                 Cerrar Caja
                             </button>
@@ -168,6 +184,7 @@ function ClientPanelPage() {
                     </div>
                 </aside>
 
+                {/* -------------- CONTENIDO MAIN -------------- */}
                 <main className="main-content">
                     {renderSection()}
                 </main>

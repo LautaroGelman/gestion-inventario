@@ -1,6 +1,13 @@
+// src/main/java/grupo5/gestion_inventario/service/SalesService.java
 package grupo5.gestion_inventario.service;
 
-import grupo5.gestion_inventario.clientpanel.dto.*;
+import grupo5.gestion_inventario.clientpanel.dto.SaleDto;
+import grupo5.gestion_inventario.clientpanel.dto.SaleItemDto;
+import grupo5.gestion_inventario.clientpanel.dto.SaleItemRequest;
+import grupo5.gestion_inventario.clientpanel.dto.SaleRequest;
+import grupo5.gestion_inventario.clientpanel.dto.SalesByEmployeeDTO;
+import grupo5.gestion_inventario.clientpanel.dto.SalesDailySummaryDto;
+import grupo5.gestion_inventario.clientpanel.dto.ProfitabilitySummaryDto;
 import grupo5.gestion_inventario.clientpanel.model.Sale;
 import grupo5.gestion_inventario.clientpanel.model.SaleItem;
 import grupo5.gestion_inventario.clientpanel.repository.SaleRepository;
@@ -24,9 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * Lógica de ventas: registrar, listar y generar reportes.
- */
 @Service
 public class SalesService {
 
@@ -50,8 +54,6 @@ public class SalesService {
      * ------------------------------------------------------------------ */
     @Transactional
     public SaleDto createSale(Long clientId, SaleRequest req) {
-
-        /* 1. Validaciones básicas */
         Client client = clientRepo.findById(clientId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.BAD_REQUEST, "Cliente no encontrado: " + clientId));
@@ -63,14 +65,10 @@ public class SalesService {
                             HttpStatus.BAD_REQUEST, "Empleado no encontrado: " + req.getEmployeeId()));
         }
 
-        /* 2. Instanciamos la venta vacía */
         Sale sale = new Sale(client, employee, req.getPaymentMethod(), req.getSaleDate());
 
-        int totalQty = 0; // acumulamos el total de unidades vendidas
-
-        /* 3. Añadimos los ítems y actualizamos stock */
+        int totalQty = 0;
         for (SaleItemRequest itemReq : req.getItems()) {
-
             Product product = productRepo.findById(itemReq.getProductId())
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.BAD_REQUEST,
@@ -78,27 +76,29 @@ public class SalesService {
 
             int currentStock = product.getQuantity();
             int qtyRequested = itemReq.getQuantity();
-
-            System.out.printf("[DEBUG] Producto %s: stock=%d, request=%d%n",
-                    product.getName(), currentStock, qtyRequested);
-
             if (currentStock - qtyRequested < 0) {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
-                        "Stock insuficiente para %s: quedan %d unidades"
-                                .formatted(product.getName(), currentStock));
+                        "Stock insuficiente para " + product.getName() + ": quedan " + currentStock + " unidades");
             }
 
             product.setQuantity(currentStock - qtyRequested);
-
             SaleItem item = new SaleItem(product, qtyRequested, product.getPrice());
             sale.addItem(item);
-
             totalQty += qtyRequested;
         }
 
-        /* 4. Guardamos y devolvemos DTO */
         Sale saved = saleRepo.save(sale);
+
+        // Mapear ítems a DTOs
+        List<SaleItemDto> itemDtos = saved.getItems().stream()
+                .map(item -> new SaleItemDto(
+                        item.getId(),
+                        item.getProduct().getId(),
+                        item.getQuantity(),
+                        item.getUnitPrice()
+                ))
+                .collect(Collectors.toList());
 
         return new SaleDto(
                 saved.getId(),
@@ -106,7 +106,8 @@ public class SalesService {
                 totalQty,
                 saved.getTotalAmount(),
                 saved.getPaymentMethod(),
-                saved.getCreatedAt()
+                saved.getCreatedAt(),
+                itemDtos
         );
     }
 
@@ -115,23 +116,28 @@ public class SalesService {
      * ------------------------------------------------------------------ */
     @Transactional(readOnly = true)
     public List<SaleDto> findByClientId(Long clientId) {
-
         if (!clientRepo.existsById(clientId)) {
-            throw new IllegalArgumentException("Cliente no encontrado: " + clientId);
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Cliente no encontrado: " + clientId);
         }
-
-        return saleRepo.findByClientId(clientId)
-                .stream()
+        return saleRepo.findByClientId(clientId).stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
 
     private SaleDto toDto(Sale sale) {
-
-        int totalQty = sale.getItems()
-                .stream()
+        int totalQty = sale.getItems().stream()
                 .mapToInt(SaleItem::getQuantity)
                 .sum();
+
+        List<SaleItemDto> itemDtos = sale.getItems().stream()
+                .map(item -> new SaleItemDto(
+                        item.getId(),
+                        item.getProduct().getId(),
+                        item.getQuantity(),
+                        item.getUnitPrice()
+                ))
+                .collect(Collectors.toList());
 
         return new SaleDto(
                 sale.getId(),
@@ -139,20 +145,17 @@ public class SalesService {
                 totalQty,
                 sale.getTotalAmount(),
                 sale.getPaymentMethod(),
-                sale.getCreatedAt()
+                sale.getCreatedAt(),
+                itemDtos
         );
     }
 
-    /* ------------------------------------------------------------------
-     *  CONTEO DEL DÍA
-     * ------------------------------------------------------------------ */
     @Transactional(readOnly = true)
     public long countSalesToday(Long clientId) {
-
         if (!clientRepo.existsById(clientId)) {
-            throw new IllegalArgumentException("Cliente no encontrado: " + clientId);
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Cliente no encontrado: " + clientId);
         }
-
         LocalDate today = LocalDate.now();
         return saleRepo.countBetween(
                 clientId,
@@ -161,72 +164,61 @@ public class SalesService {
         );
     }
 
-    /* ------------------------------------------------------------------
-     *  RESÚMENES DIARIOS Y RENTABILIDAD
-     * ------------------------------------------------------------------ */
     @Transactional(readOnly = true)
     public List<SalesDailySummaryDto> summaryLastDays(Long clientId, int days) {
-
         if (!clientRepo.existsById(clientId)) {
-            throw new IllegalArgumentException("Cliente no encontrado: " + clientId);
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Cliente no encontrado: " + clientId);
         }
-
         LocalDate start = LocalDate.now().minusDays(days - 1);
-
-        List<Object[]> raw = saleRepo.findDailySummaryNative(
-                clientId, start.atStartOfDay());
+        List<Object[]> raw = saleRepo.findDailySummaryNative(clientId, start.atStartOfDay());
 
         Map<LocalDate, SalesDailySummaryDto> map = raw.stream()
                 .collect(Collectors.toMap(
                         r -> ((java.sql.Date) r[0]).toLocalDate(),
                         r -> new SalesDailySummaryDto(
                                 ((java.sql.Date) r[0]).toLocalDate(),
-                                ((Number)      r[1]).longValue(),
-                                (BigDecimal)   r[2])));
+                                ((Number) r[1]).longValue(),
+                                (BigDecimal) r[2]
+                        )
+                ));
 
         List<SalesDailySummaryDto> result = new ArrayList<>();
         for (int i = 0; i < days; i++) {
             LocalDate d = start.plusDays(i);
-            result.add(map.getOrDefault(
-                    d, new SalesDailySummaryDto(d, 0, BigDecimal.ZERO)));
+            result.add(map.getOrDefault(d, new SalesDailySummaryDto(d, 0, BigDecimal.ZERO)));
         }
         return result;
     }
 
     @Transactional(readOnly = true)
     public List<ProfitabilitySummaryDto> getProfitabilitySummaryLastDays(Long clientId, int days) {
-
         if (!clientRepo.existsById(clientId)) {
-            throw new IllegalArgumentException("Cliente no encontrado: " + clientId);
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Cliente no encontrado: " + clientId);
         }
+        LocalDate start = LocalDate.now().minusDays(days - 1);
+        List<Object[]> raw = saleRepo.findDailyProfitabilitySummaryNative(clientId, start.atStartOfDay());
 
-        LocalDate startDate = LocalDate.now().minusDays(days - 1);
-
-        List<Object[]> rawData = saleRepo.findDailyProfitabilitySummaryNative(
-                clientId, startDate.atStartOfDay());
-
-        Map<LocalDate, ProfitabilitySummaryDto> map = rawData.stream()
+        Map<LocalDate, ProfitabilitySummaryDto> map = raw.stream()
                 .collect(Collectors.toMap(
-                        row -> ((java.sql.Date) row[0]).toLocalDate(),
-                        row -> {
-                            BigDecimal revenue = (BigDecimal) row[1];
-                            BigDecimal cost    = (BigDecimal) row[2];
-                            BigDecimal profit  = revenue.subtract(cost);
+                        r -> ((java.sql.Date) r[0]).toLocalDate(),
+                        r -> {
+                            BigDecimal revenue = (BigDecimal) r[1];
+                            BigDecimal cost    = (BigDecimal) r[2];
                             return new ProfitabilitySummaryDto(
-                                    ((java.sql.Date) row[0]).toLocalDate(),
+                                    ((java.sql.Date) r[0]).toLocalDate(),
                                     revenue,
                                     cost,
-                                    profit
+                                    revenue.subtract(cost)
                             );
                         }
                 ));
 
         List<ProfitabilitySummaryDto> result = new ArrayList<>();
         for (int i = 0; i < days; i++) {
-            LocalDate day = startDate.plusDays(i);
-            result.add(map.getOrDefault(
-                    day, new ProfitabilitySummaryDto(day, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)
-            ));
+            LocalDate d = start.plusDays(i);
+            result.add(map.getOrDefault(d, new ProfitabilitySummaryDto(d, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)));
         }
         return result;
     }
@@ -234,12 +226,26 @@ public class SalesService {
     /* ------------------------------------------------------------------
      *  VENTAS POR EMPLEADO
      * ------------------------------------------------------------------ */
-    public List<SalesByEmployeeDTO> getSalesByEmployee(
-            Long clientId, String startDate, String endDate) {
-
+    public List<SalesByEmployeeDTO> getSalesByEmployee(Long clientId, String startDate, String endDate) {
         LocalDateTime from = LocalDate.parse(startDate).atStartOfDay();
         LocalDateTime to   = LocalDate.parse(endDate).atTime(LocalTime.MAX);
-
         return saleRepo.findSalesByEmployee(clientId, from, to);
+    }
+
+    /* ------------------------------------------------------------------
+     *  OBTENER VENTA POR ID (DETALLES)
+     * ------------------------------------------------------------------ */
+    @Transactional(readOnly = true)
+    public SaleDto findByIdAndClientId(Long clientId, Long saleId) {
+        if (!clientRepo.existsById(clientId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Cliente no encontrado: " + clientId);
+        }
+        Sale sale = saleRepo.findByIdAndClientId(saleId, clientId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Venta no encontrada: clientId=" + clientId + ", saleId=" + saleId
+                ));
+        return toDto(sale);
     }
 }

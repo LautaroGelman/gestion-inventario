@@ -1,20 +1,28 @@
+// src/grupo5/gestion_inventario/clientpanel/dto/ReturnItemRequest.java
 package grupo5.gestion_inventario.clientpanel.dto;
 
-import java.math.BigDecimal;
-
+/**
+ * DTO para cada línea de devolución:
+ * saleItemId = identificador del ítem en la venta original
+ * quantity   = cantidad a devolver (<= cantidad vendida)
+ */
 public class ReturnItemRequest {
-    private Long productId; // TIPO CORREGIDO de int a Long
+    private Long saleItemId;
     private int quantity;
-    private String reason; // CAMPO AÑADIDO
 
-    // GETTERS Y SETTERS
+    public ReturnItemRequest() {}
 
-    public Long getProductId() {
-        return productId;
+    public ReturnItemRequest(Long saleItemId, int quantity) {
+        this.saleItemId = saleItemId;
+        this.quantity   = quantity;
     }
 
-    public void setProductId(Long productId) {
-        this.productId = productId;
+    public Long getSaleItemId() {
+        return saleItemId;
+    }
+
+    public void setSaleItemId(Long saleItemId) {
+        this.saleItemId = saleItemId;
     }
 
     public int getQuantity() {
@@ -23,13 +31,5 @@ public class ReturnItemRequest {
 
     public void setQuantity(int quantity) {
         this.quantity = quantity;
-    }
-
-    public String getReason() { // MÉTODO AÑADIDO
-        return reason;
-    }
-
-    public void setReason(String reason) { // MÉTODO AÑADIDO
-        this.reason = reason;
     }
 }

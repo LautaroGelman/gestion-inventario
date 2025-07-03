@@ -3,100 +3,67 @@ package grupo5.gestion_inventario.clientpanel.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import grupo5.gestion_inventario.model.Client;
+import grupo5.gestion_inventario.model.Employee;
 import jakarta.persistence.*;
+import lombok.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
-@Table(name = "expense")
+@Table(name = "expenses")                      // ← usa plural para evitar colisión
 public class Expense {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** Descripción del gasto */
-    @Column(nullable = false, length = 500)
-    private String description;
+    /** Categoría del movimiento (Sueldos, Alquiler, etc.) */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", nullable = false)
+    private ExpenseCategory category;
 
-    /** Monto del gasto */
-    @Column(nullable = false, precision = 19, scale = 2)
-    private BigDecimal amount;
-
-    /** Tipo: "FIJO" o "VARIABLE" */
-    @Column(nullable = false)
-    private String type;
-
-    /** Fecha del gasto */
-    @Column(nullable = false)
-    private LocalDate date;
+    /** Solo se completa cuando el gasto es un sueldo */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "employee_id")
+    private Employee employee;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id", nullable = false)
     @JsonIgnore
     private Client client;
 
-    /** Constructor por defecto */
-    public Expense() {}
+    /** Descripción libre del gasto / ingreso */
+    @Column(nullable = false, length = 500)
+    private String description;
 
     /**
-     * Constructor completo.
-     * @param description Descripción
-     * @param amount      Monto
-     * @param type        FIJO/VARIABLE
-     * @param date        Fecha
-     * @param client      Cliente asociado
+     * Monto del movimiento.<br>
+     * Positivo  → Ingreso &nbsp;&nbsp;•&nbsp;&nbsp; Negativo → Egreso
      */
-    public Expense(String description,
-                   BigDecimal amount,
-                   String type,
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal amount;
+
+    /** Fecha contable (p. ej. último día del mes al cerrar) */
+    @Column(nullable = false)
+    private LocalDate date;
+
+    // ——— Constructor de utilidad (sin ID) ———
+    public Expense(Client client,
+                   ExpenseCategory category,
                    LocalDate date,
-                   Client client) {
-        this.description = description;
-        this.amount      = amount;
-        this.type        = type;
-        this.date        = date;
+                   BigDecimal amount,
+                   Employee employee,
+                   String description) {
         this.client      = client;
-    }
-
-    // —— Getters & Setters ——
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-    public void setDescription(String description) {
+        this.category    = category;
+        this.date        = date;
+        this.amount      = amount;
+        this.employee    = employee;
         this.description = description;
-    }
-
-    public BigDecimal getAmount() {
-        return amount;
-    }
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
-    }
-
-    public String getType() {
-        return type;
-    }
-    public void setType(String type) {
-        this.type = type;
-    }
-
-    public LocalDate getDate() {
-        return date;
-    }
-    public void setDate(LocalDate date) {
-        this.date = date;
-    }
-
-    public Client getClient() {
-        return client;
-    }
-    public void setClient(Client client) {
-        this.client = client;
     }
 }

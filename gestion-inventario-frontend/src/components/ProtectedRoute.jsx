@@ -1,44 +1,48 @@
+// src/components/ProtectedRoute.jsx
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { jwtDecode } from 'jwt-decode'; // Asegúrate de que jwt-decode esté instalado
+import { jwtDecode } from 'jwt-decode';   // Asegúrate de que jwt-decode esté instalado
 
 /**
- * Componente de protección de rutas final y robusto.
- * Decodifica el token en el momento para evitar "race conditions" con el estado del contexto.
+ * Componente de protección de rutas.
+ * Decodifica el JWT “en vivo” para evitar diferencias de estado con el contexto.
  */
-function ProtectedRoute({ children, allowedRoles }) {
+function ProtectedRoute({ children, allowedRoles = [] }) {
     const location = useLocation();
-    const token = localStorage.getItem('token'); // Leemos el token directamente
+    const token = localStorage.getItem('token');      // 1. Token desde storage
 
-    // 1. Si no hay token, el usuario no ha iniciado sesión.
+    /* ---------- SIN TOKEN → LOGIN ---------- */
     if (!token) {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
     try {
-        // 2. Decodificamos el token para obtener los datos más actuales.
+        /* ---------- DECODE ---------- */
         const decodedUser = jwtDecode(token);
+        const userRoles = Array.isArray(decodedUser?.roles)
+            ? decodedUser.roles
+            : [decodedUser?.roles].filter(Boolean);       // Normaliza a array
 
-        // 3. Si la ruta requiere roles, los verificamos.
-        if (allowedRoles && allowedRoles.length > 0) {
-            const userRoles = decodedUser?.roles || [];
-            const isAuthorized = userRoles.some(role => allowedRoles.includes(role));
+        /* DEBUG ↓ (bórralo en prod) */
+        console.log('[ProtectedRoute] userRoles:', userRoles);
+        console.log('[ProtectedRoute] allowedRoles:', allowedRoles);
+
+        /* ---------- CHECK ROLES ---------- */
+        if (allowedRoles.length > 0) {
+            const isAuthorized = userRoles.some(r => allowedRoles.includes(r));
 
             if (!isAuthorized) {
-                // Si el usuario no tiene los roles, lo enviamos a una página de "no autorizado".
-                // Como aún no la hemos creado, lo redirigimos a la raíz,
-                // donde HomeRedirector lo enviará a su panel por defecto (si lo tiene) o al login.
+                // No tiene permiso → lo enviamos a raíz
                 return <Navigate to="/" replace />;
             }
         }
 
-        // 4. Si todo está en orden, renderiza el componente protegido.
+        /* ---------- OK → RENDER ---------- */
         return children;
 
     } catch (error) {
-        // Si el token es inválido o corrupto, lo limpiamos y redirigimos al login.
-        console.error("Token inválido:", error);
-        // Limpiamos token de localStorage y cookie
+        /* ---------- TOKEN CORRUPTO ---------- */
+        console.error('[ProtectedRoute] Token inválido:', error);
         localStorage.removeItem('token');
         document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
         return <Navigate to="/login" state={{ from: location }} replace />;

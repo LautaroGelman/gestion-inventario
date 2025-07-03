@@ -1,11 +1,9 @@
-// src/main/java/grupo5/gestion_inventario/clientpanel/controller/ClientEmployeeController.java
 package grupo5.gestion_inventario.clientpanel.controller;
 
 import grupo5.gestion_inventario.clientpanel.dto.CreateEmployeeRequest;
 import grupo5.gestion_inventario.clientpanel.dto.EmployeeDto;
 import grupo5.gestion_inventario.clientpanel.dto.UpdateEmployeeRequest;
 import grupo5.gestion_inventario.model.Client;
-import grupo5.gestion_inventario.repository.ClientRepository;
 import grupo5.gestion_inventario.service.EmployeeService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,14 +14,15 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/client-panel/{clientId}/employees")
-// Solo cliente y administradores pueden crear empleados
-@PreAuthorize("hasAnyRole('ROLE_CLIENT','ROLE_ADMINISTRADOR')")
+// Solo CLIENT y ADMINISTRADOR (propietario) pueden gestionar empleados
+@PreAuthorize("hasAnyRole('CLIENT','ADMINISTRADOR')")
 public class ClientEmployeeController {
 
     private final EmployeeService employeeService;
-    private final ClientRepository clientRepo;
+    private final grupo5.gestion_inventario.repository.ClientRepository clientRepo;
 
-    public ClientEmployeeController(EmployeeService employeeService, ClientRepository clientRepo) {
+    public ClientEmployeeController(EmployeeService employeeService,
+                                    grupo5.gestion_inventario.repository.ClientRepository clientRepo) {
         this.employeeService = employeeService;
         this.clientRepo      = clientRepo;
     }
@@ -48,8 +47,8 @@ public class ClientEmployeeController {
             @PathVariable Long clientId,
             @RequestBody CreateEmployeeRequest req,
             Authentication auth) {
-        validateClient(clientId, auth);
-        return employeeService.create(clientId, req);
+        Client client = validateClient(clientId, auth);
+        return employeeService.create(client.getId(), req);
     }
 
     @PutMapping("/{id}")

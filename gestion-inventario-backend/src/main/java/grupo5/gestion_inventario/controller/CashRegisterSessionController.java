@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/cash-sessions")
-@PreAuthorize("hasAnyRole('CAJERO', 'MULTIFUNCION', 'ADMINISTRADOR')") // Protegemos a nivel de clase
+@PreAuthorize("hasAnyRole('CAJERO','VENTAS_INVENTARIO','MULTIFUNCION','ADMINISTRADOR')")
 public class CashRegisterSessionController {
 
     @Autowired

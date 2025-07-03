@@ -18,8 +18,8 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/client-panel/{clientId}")
-// Permitimos al propietario (CLIENT) y a los empleados (ADMINISTRADOR, CAJERO, MULTIFUNCION)
-@PreAuthorize("hasAnyRole('CLIENT','ADMINISTRADOR','CAJERO','MULTIFUNCION')")
+// Permitimos al propietario (CLIENT) y a los empleados (ADMINISTRADOR, CAJERO, MULTIFUNCION, INVENTARIO, VENTAS_INVENTARIO)
+@PreAuthorize("hasAnyRole('CLIENT','ADMINISTRADOR','CAJERO','MULTIFUNCION','INVENTARIO','VENTAS_INVENTARIO')")
 public class ClientPanelController {
 
     private final ClientRepository clientRepo;
@@ -47,6 +47,9 @@ public class ClientPanelController {
     // — GETS ya existentes —
 
     @GetMapping("/dashboard")
+    @PreAuthorize(
+            "hasAnyRole('CLIENT','ADMINISTRADOR','CAJERO','MULTIFUNCION','INVENTARIO','VENTAS_INVENTARIO')"
+    )
     public ResponseEntity<ClientDashboardDto> getDashboard(
             @PathVariable Long clientId,
             Authentication auth) {

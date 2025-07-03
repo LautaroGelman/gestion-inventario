@@ -27,24 +27,22 @@ public class ClientProductController {
         this.employeeRepo   = employeeRepo;
     }
 
+    /* ---------- Util ---------- */
     private Client validateClient(Long clientId, Authentication auth) {
-        // 1) Cargo al empleado autenticado por email
         Employee emp = employeeRepo.findByEmail(auth.getName())
                 .orElseThrow(() -> new RuntimeException("Empleado no encontrado"));
-        // 2) Obtengo su cliente
         Client client = emp.getClient();
-        // 3) Verifico que coincida con el clientId de la ruta
         if (!client.getId().equals(clientId)) {
             throw new AccessDeniedException("No autorizado para este cliente");
         }
         return client;
     }
 
-    /**
-     * Listar todos los productos del cliente (incluye ROLE_CAJERO)
-     */
+    /* ---------- LISTAR (incluye CAJERO) ---------- */
     @GetMapping
-    @PreAuthorize("hasAnyRole('CLIENT','ADMINISTRADOR','CAJERO','MULTIFUNCION')")
+    @PreAuthorize(
+            "hasAnyRole('CLIENT','ADMINISTRADOR','CAJERO','MULTIFUNCION','INVENTARIO','VENTAS_INVENTARIO')"
+    )
     public ResponseEntity<List<ProductDto>> listItems(
             @PathVariable Long clientId,
             Authentication auth) {
@@ -53,11 +51,11 @@ public class ClientProductController {
         return ResponseEntity.ok(items);
     }
 
-    /**
-     * Obtener un producto por ID (incluye ROLE_CAJERO)
-     */
+    /* ---------- OBTENER POR ID (incluye CAJERO) ---------- */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('CLIENT','ADMINISTRADOR','CAJERO','MULTIFUNCION')")
+    @PreAuthorize(
+            "hasAnyRole('CLIENT','ADMINISTRADOR','CAJERO','MULTIFUNCION','INVENTARIO','VENTAS_INVENTARIO')"
+    )
     public ResponseEntity<ProductDto> getItem(
             @PathVariable Long clientId,
             @PathVariable Long id,
@@ -68,11 +66,11 @@ public class ClientProductController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    /**
-     * Crear un nuevo producto (EXCLUYE ROLE_CAJERO)
-     */
+    /* ---------- CREAR (excluye CAJERO) ---------- */
     @PostMapping
-    @PreAuthorize("hasAnyRole('CLIENT','ADMINISTRADOR','MULTIFUNCION')")
+    @PreAuthorize(
+            "hasAnyRole('CLIENT','ADMINISTRADOR','MULTIFUNCION','INVENTARIO','VENTAS_INVENTARIO')"
+    )
     public ResponseEntity<ProductDto> createItem(
             @PathVariable Long clientId,
             @RequestBody ProductRequest req,
@@ -82,11 +80,11 @@ public class ClientProductController {
         return ResponseEntity.ok(created);
     }
 
-    /**
-     * Actualizar un producto existente (EXCLUYE ROLE_CAJERO)
-     */
+    /* ---------- ACTUALIZAR (excluye CAJERO) ---------- */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('CLIENT','ADMINISTRADOR','MULTIFUNCION')")
+    @PreAuthorize(
+            "hasAnyRole('CLIENT','ADMINISTRADOR','MULTIFUNCION','INVENTARIO','VENTAS_INVENTARIO')"
+    )
     public ResponseEntity<ProductDto> updateItem(
             @PathVariable Long clientId,
             @PathVariable Long id,
@@ -98,11 +96,11 @@ public class ClientProductController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    /**
-     * Eliminar un producto (EXCLUYE ROLE_CAJERO)
-     */
+    /* ---------- ELIMINAR (excluye CAJERO) ---------- */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('CLIENT','ADMINISTRADOR','MULTIFUNCION')")
+    @PreAuthorize(
+            "hasAnyRole('CLIENT','ADMINISTRADOR','MULTIFUNCION','INVENTARIO','VENTAS_INVENTARIO')"
+    )
     public ResponseEntity<Void> deleteItem(
             @PathVariable Long clientId,
             @PathVariable Long id,
@@ -114,4 +112,3 @@ public class ClientProductController {
                 : ResponseEntity.notFound().build();
     }
 }
-

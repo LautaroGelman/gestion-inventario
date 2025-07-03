@@ -1,6 +1,8 @@
+// src/main/java/grupo5/gestion_inventario/clientpanel/controller/ClientSaleReturnController.java
 package grupo5.gestion_inventario.clientpanel.controller;
 
 import grupo5.gestion_inventario.clientpanel.dto.SaleReturnRequest;
+import grupo5.gestion_inventario.clientpanel.dto.SaleReturnDto;
 import grupo5.gestion_inventario.model.Client;
 import grupo5.gestion_inventario.model.Employee;
 import grupo5.gestion_inventario.repository.EmployeeRepository;
@@ -11,12 +13,17 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/client-panel/{clientId}/returns")
 public class ClientSaleReturnController {
 
-    private final SaleReturnService returnService;
-    private final EmployeeRepository employeeRepo;
+    private final SaleReturnService   returnService;
+    private final EmployeeRepository  employeeRepo;
 
     public ClientSaleReturnController(SaleReturnService returnService,
                                       EmployeeRepository employeeRepo) {
@@ -24,8 +31,8 @@ public class ClientSaleReturnController {
         this.employeeRepo  = employeeRepo;
     }
 
+    /* ───────────── validación de pertenencia ───────────── */
     private Client validateClient(Long clientId, Authentication auth) {
-        // Carga al empleado (incluye al dueño como ADMINISTRADOR)
         Employee emp = employeeRepo.findByEmail(auth.getName())
                 .orElseThrow(() -> new RuntimeException("Empleado no encontrado"));
         Client client = emp.getClient();
@@ -35,17 +42,48 @@ public class ClientSaleReturnController {
         return client;
     }
 
-    /**
-     * Crear una devolución de venta (incluye ROLE_CAJERO)
-     */
+    /* ───────────── POST /returns ───────────── */
     @PostMapping
-    @PreAuthorize("hasAnyRole('CLIENT','ADMINISTRADOR','CAJERO','MULTIFUNCION')")
-    public ResponseEntity<?> createReturn(
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','CAJERO','VENTAS_INVENTARIO','MULTIFUNCION')")
+    public ResponseEntity<SaleReturnDto> createReturn(
             @PathVariable Long clientId,
             @RequestBody SaleReturnRequest req,
             Authentication auth) {
+
         validateClient(clientId, auth);
-        return ResponseEntity.ok(returnService.createSaleReturn(req));
+
+        // Inyectar el clientId en la petición para la lógica del servicio
+        req.setClientId(clientId);
+
+        SaleReturnDto dto = returnService.createSaleReturn(req);
+        return ResponseEntity.ok(dto);
+    }
+
+    /* ───────────── GET /returns ───────────── */
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','CAJERO','VENTAS_INVENTARIO','MULTIFUNCION')")
+    public ResponseEntity<List<SaleReturnDto>> listReturns(
+            @PathVariable Long clientId,
+            @RequestParam(required = false) Long saleId,
+            @RequestParam(required = false) String from,   // yyyy-MM-dd
+            @RequestParam(required = false) String to,     // yyyy-MM-dd
+            Authentication auth) {
+
+        validateClient(clientId, auth);
+
+        LocalDateTime fromDt = null, toDt = null;
+        try {
+            if (from != null && !from.isBlank()) {
+                fromDt = LocalDate.parse(from).atStartOfDay();
+            }
+            if (to != null && !to.isBlank()) {
+                toDt = LocalDate.parse(to).atTime(23, 59, 59);
+            }
+        } catch (DateTimeParseException e) {
+            throw new RuntimeException("Formato de fecha inválido (yyyy-MM-dd)");
+        }
+
+        List<SaleReturnDto> list = returnService.listReturns(clientId, saleId, fromDt, toDt);
+        return ResponseEntity.ok(list);
     }
 }
-

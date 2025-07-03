@@ -1,9 +1,26 @@
+// src/main/java/grupo5/gestion_inventario/clientpanel/repository/SaleReturnRepository.java
 package grupo5.gestion_inventario.clientpanel.repository;
 
 import grupo5.gestion_inventario.clientpanel.model.SaleReturn;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
-@Repository
+import java.time.LocalDateTime;
+import java.util.List;
+
 public interface SaleReturnRepository extends JpaRepository<SaleReturn, Long> {
+
+    @Query("""
+        SELECT sr FROM SaleReturn sr
+        WHERE sr.client.id = :clientId
+          AND (:saleId IS NULL OR sr.sale.id = :saleId)
+          AND (:from IS NULL OR sr.returnDate >= :from)
+          AND (:to   IS NULL OR sr.returnDate <= :to)
+        ORDER BY sr.returnDate DESC
+    """)
+    List<SaleReturn> findByFilters(@Param("clientId") Long clientId,
+                                   @Param("saleId")   Long saleId,
+                                   @Param("from")     LocalDateTime from,
+                                   @Param("to")       LocalDateTime to);
 }

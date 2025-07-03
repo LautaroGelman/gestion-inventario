@@ -1,0 +1,85 @@
+/* src/components/client/ReturnsHistory.css */
+
+/* ╭──────────────────── Contenedor ────────────────────╮ */
+.returns-history {
+    padding: 1rem 1.5rem;
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+/* ╭──────────────────── Filtros ───────────────────────╮ */
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.filters input[type="number"],
+.filters input[type="date"] {
+    padding: 0.35rem 0.6rem;
+    width: 130px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.filters button {
+    padding: 0.4rem 0.9rem;
+    border: none;
+    background: #1976d2;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.filters button:disabled {
+    background: #8ab4f8;
+    cursor: default;
+}
+.filters button:not(:disabled):hover {
+    background: #125aa9;
+}
+
+/* ╭──────────────────── Tabla ─────────────────────────╮ */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.5rem;
+}
+th,
+td {
+    border: 1px solid #ddd;
+    padding: 0.5rem;
+    text-align: center;
+}
+th {
+    background: #f4f6f8;
+    font-weight: 600;
+}
+tr:nth-child(even) {
+    background: #fafbfc;
+}
+
+/* ╭──────────────────── Mensajes ──────────────────────╮ */
+.msg {
+    margin-top: 0.8rem;
+    font-weight: 600;
+    color: #d32f2f;
+}
+
+/* ╭──────────────────── Responsive ────────────────────╮ */
+@media (max-width: 600px) {
+    .filters {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .filters input,
+    .filters button {
+        width: 100%;
+    }
+    th,
+    td {
+        font-size: 0.85rem;
+    }
+}

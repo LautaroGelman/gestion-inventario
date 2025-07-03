@@ -18,8 +18,8 @@ import java.util.stream.Collectors;
 public class EmployeeService {
 
     private final EmployeeRepository employeeRepo;
-    private final ClientRepository clientRepo;
-    private final PasswordEncoder passwordEncoder;
+    private final ClientRepository   clientRepo;
+    private final PasswordEncoder    passwordEncoder;
 
     public EmployeeService(EmployeeRepository employeeRepo,
                            ClientRepository clientRepo,
@@ -29,11 +29,15 @@ public class EmployeeService {
         this.passwordEncoder = passwordEncoder;
     }
 
+    /* --------- CONSULTAS --------- */
+
     public List<EmployeeDto> findByClientId(Long clientId) {
         return employeeRepo.findByClientId(clientId).stream()
                 .map(EmployeeDto::fromEntity)
                 .collect(Collectors.toList());
     }
+
+    /* --------- CREAR --------- */
 
     @Transactional
     public EmployeeDto create(Long clientId, CreateEmployeeRequest req) {
@@ -58,24 +62,35 @@ public class EmployeeService {
         return EmployeeDto.fromEntity(saved);
     }
 
+    /* --------- ACTUALIZAR --------- */
+
     @Transactional
     public EmployeeDto update(Long clientId, Long id, UpdateEmployeeRequest req) {
         Employee e = employeeRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Empleado no encontrado"));
+
         if (!e.getClient().getId().equals(clientId)) {
             throw new RuntimeException("No autorizado");
         }
 
-        e.setName(req.getName());
-        e.setRole(req.getRole());
-        // Cifrar nueva contraseña si se proporcionó
-        if (req.getPasswordHash() != null) {
+        // Nombre y rol
+        if (req.getName() != null) {
+            e.setName(req.getName());
+        }
+        if (req.getRole() != null) {
+            e.setRole(req.getRole());
+        }
+
+        // Contraseña nueva (texto plano en passwordHash)
+        if (req.getPasswordHash() != null && !req.getPasswordHash().isBlank()) {
             e.setPasswordHash(passwordEncoder.encode(req.getPasswordHash()));
         }
 
         Employee saved = employeeRepo.save(e);
         return EmployeeDto.fromEntity(saved);
     }
+
+    /* --------- ELIMINAR --------- */
 
     @Transactional
     public void delete(Long clientId, Long id) {
