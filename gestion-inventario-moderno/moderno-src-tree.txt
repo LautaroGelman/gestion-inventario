@@ -1,0 +1,103 @@
+Listado de rutas de carpetas
+El n£mero de serie del volumen es 0000009C 1890:2582
+C:\USERS\LAUTARO\DESKTOP\GESTION-INVENTARIO-MAIN\GESTION-INVENTARIO-MODERNO\SRC
+|   .eslintrc.json
+|   .prettierrc.json
+|   components.json
+|   counter.js
+|   javascript.svg
+|   main.js
+|   next-env.d.ts
+|   package.json
+|   postcss.config.mjs
+|   style.css
+|   tailwind.config.ts
+|   
++---app
+|   |   globals.css
+|   |   layout.tsx
+|   |   page.tsx
+|   |   
+|   +---admin
+|   |       page.tsx
+|   |       
+|   +---article-form
+|   |       page.tsx
+|   |       
+|   +---client
+|   |       page.tsx
+|   |       
+|   +---login
+|   |       page.tsx
+|   |       
+|   +---panel
+|   |       page.tsx
+|   |       
+|   +---provider-form
+|   |       page.tsx
+|   |       
+|   +---register-client
+|   |       page.tsx
+|   |       
+|   +---return-form
+|   |       page.tsx
+|   |       
+|   \---sale-form
+|           page.tsx
+|           
++---components
+|   |   ProtectedRoute.tsx
+|   |   section.tsx
+|   |   
+|   +---admin
+|   |       AccountsSection.tsx
+|   |       AdminDashboard.tsx
+|   |       page.tsx
+|   |       
+|   +---client
+|   |       CashSessionModal.tsx
+|   |       DashboardSection.tsx
+|   |       EmployeesSection.tsx
+|   |       InventorySection.tsx
+|   |       Notifications.tsx
+|   |       ProvidersSection.tsx
+|   |       ReportsSection.tsx
+|   |       ReturnsHistory.tsx
+|   |       ReturnsSection.tsx
+|   |       SalesSection.tsx
+|   |       
+|   +---pages
+|   |       AdminPanelPage.tsx
+|   |       ArticleFormPage.tsx
+|   |       ClientFormPage.tsx
+|   |       ClientPanelPage.tsx
+|   |       LoginPage.tsx
+|   |       ProviderFormPage.tsx
+|   |       ReturnFormPage.tsx
+|   |       SaleFormPage.tsx
+|   |       
+|   \---ui
+|           button.tsx
+|           card.tsx
+|           input.tsx
+|           RentabilidadChart.tsx
+|           separator.tsx
+|           sheet.tsx
+|           sidebar.tsx
+|           skeleton.tsx
+|           tooltip.tsx
+|           VentasChart.tsx
+|           
++---context
+|       AuthContext.tsx
+|       
++---hooks
+|       use-mobile.ts
+|       useCashSession.ts
+|       
++---lib
+|       utils.ts
+|       
+\---services
+        api.ts
+        

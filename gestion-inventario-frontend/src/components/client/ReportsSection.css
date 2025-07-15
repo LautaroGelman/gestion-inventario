@@ -1,0 +1,94 @@
+/* src/components/client/ReportSection.css */
+
+/* Contenedor principal */
+.report-section {
+    padding: 1rem;
+    font-family: sans-serif;
+}
+
+/* Mensaje de error */
+.error-message {
+    color: #c00;
+    background-color: #fee;
+    border: 1px solid #c00;
+    border-radius: 4px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+/* Área de filtros */
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Cada grupo de filtro */
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* Etiquetas de filtros */
+.filter-group label {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+/* Inputs de fecha y select múltiple */
+.filter-group input[type="date"],
+.filter-group select {
+    padding: 0.5rem;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #fff;
+}
+
+/* Botón aplicar */
+.filter-group button {
+    padding: 0.6rem 1.2rem;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #fff;
+    background-color: #007bff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.filter-group button:hover {
+    background-color: #0056b3;
+}
+
+/* Contenedor de gráficos */
+.charts-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+}
+
+/* Dos columnas en pantallas ≥ 768px */
+@media (min-width: 768px) {
+    .charts-container {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* Cada gráfico individual */
+.chart-wrapper {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* Título de gráfico */
+.chart-wrapper h3 {
+    margin: 0 0 0.75rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #333;
+}

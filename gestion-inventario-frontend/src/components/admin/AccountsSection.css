@@ -1,0 +1,121 @@
+.accounts-section .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.accounts-section h2 {
+    font-size: 1.5rem;
+    color: #333;
+    margin: 0;
+}
+
+.accounts-section .btn-new {
+    background-color: #0480a3;
+    color: #ffffff;
+    border: none;
+    padding: 10px 20px;
+    font-size: 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.accounts-section table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #ffffff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.accounts-section th,
+.accounts-section td {
+    padding: 14px 16px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: white;
+    text-transform: uppercase;
+}
+
+.status-activo {
+    background-color: #28a745;
+}
+
+.status-inactivo {
+    background-color: #6c757d;
+}
+
+.btn-toggle-status {
+    border: 1px solid #ccc;
+    background-color: #f8f9fa;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+/* Agrega esto al final de tu archivo AccountsSection.css */
+
+.success-alert {
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: #155724;
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    text-align: center;
+    font-weight: bold;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+/* ESTILOS PARA LA NOTIFICACIÓN */
+.notification {
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    color: #fff;
+    font-weight: bold;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    animation: fadeIn 0.5s ease-out;
+}
+
+.notification.success {
+    background-color: #4CAF50; /* Verde para éxito */
+}
+
+.notification.error {
+    background-color: #f44336; /* Rojo para error */
+}
+
+.notification.info {
+    background-color: #2196F3; /* Azul para información */
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+

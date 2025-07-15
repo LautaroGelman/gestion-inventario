@@ -1,0 +1,76 @@
+Listado de rutas de carpetas
+El n£mero de serie del volumen es 00000045 1890:2582
+C:\USERS\LAUTARO\DESKTOP\GESTION-INVENTARIO-MAIN\GESTION-INVENTARIO-FRONTEND\SRC
+|   App.jsx
+|   chartSetup.js
+|   index.css
+|   main.jsx
+|   
++---assets
+|       react.svg
+|       
++---components
+|   |   HomeRedirector.jsx
+|   |   Notifications.jsx
+|   |   ProtectedRoute.jsx
+|   |   
+|   +---admin
+|   |       AccountsSection.css
+|   |       AccountsSection.jsx
+|   |       AdminDashboard.css
+|   |       AdminDashboard.jsx
+|   |       
+|   +---client
+|   |       BestSellersChart.jsx
+|   |       CashSessionModal.css
+|   |       CashSessionModal.jsx
+|   |       DashboardSection.css
+|   |       DashboardSection.jsx
+|   |       EmployeesSection.css
+|   |       EmployeesSection.jsx
+|   |       InventorySection.css
+|   |       InventorySection.jsx
+|   |       Notifications.css
+|   |       ProfitabilityChart.jsx
+|   |       ProvidersSection.jsx
+|   |       ReportsSection.css
+|   |       ReportsSection.jsx
+|   |       ReturnsHistory.css
+|   |       ReturnsHistory.jsx
+|   |       ReturnsSection.css
+|   |       ReturnsSection.jsx
+|   |       SalesByEmployeeTable.jsx
+|   |       SalesChart.jsx
+|   |       SalesSection.css
+|   |       SalesSection.jsx
+|   |       
+|   \---ui
+|           Button.jsx
+|           Card.jsx
+|           
++---context
+|       AuthContext.jsx
+|       
++---hooks
+|       useCashSession.js
+|       
++---pages
+|       AdminPanelPage.css
+|       AdminPanelPage.jsx
+|       ArticleFormPage.css
+|       ArticleFormPage.jsx
+|       ClientFormPage.css
+|       ClientFormPage.jsx
+|       ClientPanelPage.css
+|       ClientPanelPage.jsx
+|       LoginPage.css
+|       LoginPage.jsx
+|       ProviderFormPage.jsx
+|       ReturnFormPage.css
+|       ReturnFormPage.jsx
+|       SaleFormPage.css
+|       SaleFormPage.jsx
+|       
+\---services
+        api.js
+        
