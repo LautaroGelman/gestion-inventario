@@ -2,8 +2,7 @@
 'use client';
 
 import { ReactNode, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { jwtDecode } from 'jwt-decode';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
 interface ProtectedRouteProps {
@@ -12,42 +11,25 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ allowedRoles = [], children }: ProtectedRouteProps) {
-    const { logout } = useAuth();
+    const { user, loading } = useAuth();
     const router = useRouter();
-    const pathname = usePathname();
 
     useEffect(() => {
-        const token = typeof window !== 'undefined'
-            ? localStorage.getItem('token')
-            : null;
+        if (loading) return;
 
-        if (!token) {
+        if (!user) {
             router.replace('/login');
             return;
         }
-
-        let decoded: any;
-        try {
-            decoded = jwtDecode(token);
-        } catch (error) {
-            console.error('[ProtectedRoute] Token inválido:', error);
-            localStorage.removeItem('token');
-            logout();
-            router.replace('/login');
-            return;
-        }
-
-        const roles = Array.isArray(decoded.roles)
-            ? decoded.roles
-            : [decoded.roles].filter(Boolean);
 
         if (allowedRoles.length > 0) {
-            const isAuthorized = roles.some((r: string) => allowedRoles.includes(r));
+            const isAuthorized = user.roles.some(r => allowedRoles.includes(r));
             if (!isAuthorized) {
                 router.replace('/');
             }
         }
-    }, [allowedRoles, logout, router, pathname]);
+    }, [user, loading, allowedRoles, router]);
 
+    if (loading) return null;
     return <>{children}</>;
 }

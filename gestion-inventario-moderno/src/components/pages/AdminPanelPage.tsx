@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { getClients } from '@/services/api';
 import AccountsSection from '@/components/admin/AccountsSection';
 import AdminDashboard from '@/components/admin/AdminDashboard';
@@ -12,57 +12,74 @@ const ADMIN_ROUTES = ['dashboard', 'cuentas'] as const;
 type Section = typeof ADMIN_ROUTES[number];
 
 export default function AdminPanelPage() {
-    const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
-    const { user, isLoading, logout } = useAuth(); // asume isLoading en el context
+    const router      = useRouter();
+    const pathname    = usePathname();
+    const { user, loading, logout } = useAuth();     // ← loading, no isLoading
 
-    // Inicializa sección desde el hash solo al montar
+    // ────────────────────────
+    // 1) Seguridad de acceso
+    // ────────────────────────
+    useEffect(() => {
+        if (loading) return;                           // aún no sé el rol
+        if (!user || !user.roles.includes('ROLE_ADMIN')) {
+            router.replace('/login');
+        }
+    }, [user, loading, router]);
+
+    // ────────────────────────
+    // 2) Sección activa (hash)
+    // ────────────────────────
     const [activeSection, setActiveSection] = useState<Section>('dashboard');
     useEffect(() => {
-        const fromHash = window.location.hash.replace('#', '') as Section;
-        const initial = ADMIN_ROUTES.includes(fromHash) ? fromHash : 'dashboard';
+        const first = window.location.hash.replace('#', '') as Section;
+        const initial = ADMIN_ROUTES.includes(first) ? first : 'dashboard';
         setActiveSection(initial);
         window.history.replaceState(null, '', `${pathname}#${initial}`);
     }, [pathname]);
 
+    // ────────────────────────
+    // 3) Datos de clientes
+    // ────────────────────────
     const [clientData, setClientData] = useState<any>(null);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [error, setError] = useState<string>('');
+    const [fetching,   setFetching]   = useState(false);
+    const [error,      setError]      = useState('');
 
     const fetchData = async () => {
-        setLoading(true);
+        setFetching(true);
         try {
-            const response = await getClients();
-            setClientData(response.data);
+            const { data } = await getClients();
+            setClientData(data);
             setError('');
         } catch (err: any) {
             console.error(err);
-            setError(err.response?.data?.message || err.message || 'Error al cargar datos del panel.');
+            setError(
+                err.response?.data?.message ||
+                err.message ||
+                'Error al cargar los clientes.'
+            );
         } finally {
-            setLoading(false);
+            setFetching(false);
         }
     };
 
+    // Solo dispara la petición cuando:
+    //   - ya terminó de cargar el contexto
+    //   - el usuario existe y es ROLE_ADMIN
     useEffect(() => {
-        fetchData();
-    }, []);
+        if (!loading && user && user.roles.includes('ROLE_ADMIN')) {
+            fetchData();
+        }
+    }, [loading, user]);          // <- depende de loading/user
 
-    const handleSectionChange = (section: Section) => {
-        setActiveSection(section);
-        window.history.replaceState(null, '', `${pathname}#${section}`);
-    };
-
-    const handleLogout = () => {
-        localStorage.removeItem('token');
-        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-        logout();
-        router.replace('/login');
-    };
+    // ────────────────────────
+    // 4) Render
+    // ────────────────────────
+    if (loading || !user) return <div>Cargando usuario…</div>;
+    if (!user.roles.includes('ROLE_ADMIN')) return null; // safety
 
     const renderSection = () => {
-        if (loading) return <div>Cargando...</div>;
-        if (error)   return <div className="error-message">Error: {error}</div>;
+        if (fetching) return <div>Cargando datos…</div>;
+        if (error)    return <div className="error-message">Error: {error}</div>;
 
         switch (activeSection) {
             case 'cuentas':
@@ -78,14 +95,17 @@ export default function AdminPanelPage() {
         }
     };
 
-    // Espera a que el context cargue el usuario
-    if (isLoading) {
-        return <div>Cargando usuario…</div>;
-    }
-    if (!user || !user.roles.includes('ROLE_ADMIN')) {
+    const handleSectionChange = (sec: Section) => {
+        setActiveSection(sec);
+        window.history.replaceState(null, '', `${pathname}#${sec}`);
+    };
+
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        logout();
         router.replace('/login');
-        return null;
-    }
+    };
 
     return (
         <div className="admin-container">
@@ -105,16 +125,11 @@ export default function AdminPanelPage() {
                         Cuentas
                     </button>
                 </nav>
-                <button
-                    id="logout-btn-admin"
-                    onClick={handleLogout}
-                >
+                <button id="logout-btn-admin" onClick={handleLogout}>
                     Cerrar sesión
                 </button>
             </aside>
-            <main className="main-content">
-                {renderSection()}
-            </main>
+            <main className="main-content">{renderSection()}</main>
         </div>
     );
 }

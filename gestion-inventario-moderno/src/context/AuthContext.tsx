@@ -25,6 +25,7 @@ export interface User {
 
 interface AuthContextValue {
     user: User | null;
+    loading: boolean;
     login: (token: string) => void;
     logout: () => void;
 }
@@ -62,48 +63,59 @@ function buildUser(decoded: DecodedToken | null): User | null {
     };
 }
 
+function getToken(): string | null {
+    // 1) localStorage
+    if (typeof window !== 'undefined') {
+        const ls = localStorage.getItem('token');
+        if (ls) return ls;
+        // 2) cookie named 'token'
+        const m = document.cookie.match(/(^|; )token=([^;]+)/);
+        if (m) return decodeURIComponent(m[2]);
+    }
+    return null;
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-        const decoded = decodeToken(token);
-        const u = buildUser(decoded);
-        if (u) {
-            setUser(u);
-        } else {
-            localStorage.removeItem('token');
+        const token = getToken();
+        if (token) {
+            const decoded = decodeToken(token);
+            const u = buildUser(decoded);
+            if (u) setUser(u);
+            else document.cookie = 'token=; Max-Age=0; path=/';
         }
+        setLoading(false);
     }, []);
 
     const login = (token: string) => {
-        console.log('AuthContext received token:', token);
+        // guarda en localStorage y en cookie
+        localStorage.setItem('token', token);
+        document.cookie = `token=${encodeURIComponent(token)}; path=/;`;
         const decoded = decodeToken(token);
         const u = buildUser(decoded);
-        if (!u) {
-            console.error('Invalid token');
-            return;
-        }
-        console.log('Token decoded successfully:', u);
-        localStorage.setItem('token', token);
-        setUser(u);
+        if (u) setUser(u);
+        setLoading(false);
     };
 
     const logout = () => {
         localStorage.removeItem('token');
+        document.cookie = 'token=; Max-Age=0; path=/';
         setUser(null);
+        setLoading(false);
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout }}>
+        <AuthContext.Provider value={{ user, loading, login, logout }}>
             {children}
         </AuthContext.Provider>
     );
 };
 
 export const useAuth = (): AuthContextValue => {
-    const context = useContext(AuthContext);
-    if (!context) throw new Error('useAuth must be used within AuthProvider');
-    return context;
+    const ctx = useContext(AuthContext);
+    if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+    return ctx;
 };

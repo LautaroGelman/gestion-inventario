@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/alerts")h
+@RequestMapping("/api/alerts")
 @CrossOrigin(origins = "http://localhost:3000")
 @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'MULTIFUNCION')") // Solo los administradores ven alertas
 public class AlertController {

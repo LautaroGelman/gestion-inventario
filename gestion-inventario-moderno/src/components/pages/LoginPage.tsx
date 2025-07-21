@@ -7,36 +7,29 @@ import { login as apiLogin } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage(): JSX.Element {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError]     = useState('');
+    const [username, setUsername]   = useState('');
+    const [password, setPassword]   = useState('');
+    const [error, setError]         = useState('');
     const router = useRouter();
-    const { user, login } = useAuth();
+    const { user, loading, login } = useAuth();
 
     useEffect(() => {
-        if (user) {
-            router.replace('/');
-        }
-    }, [user, router]);
+        if (loading) return;
+        if (user) router.replace('/');
+    }, [user, loading, router]);
 
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError('');
-
         try {
             const response = await apiLogin({ username, password });
             const token = response.data?.token;
-            if (!token) {
-                throw new Error('No se recibió un token válido del servidor.');
-            }
+            if (!token) throw new Error('No se recibió un token válido.');
             login(token);
         } catch (err: any) {
-            const message =
-                err.response?.data?.message ||
-                err.message ||
-                'Error al iniciar sesión. Revisa tus credenciales.';
-            console.error('Error en el login:', err);
-            setError(message);
+            const msg = err.response?.data?.message || err.message || 'Error de credenciales.';
+            console.error(err);
+            setError(msg);
         }
     };
 
@@ -44,37 +37,27 @@ export default function LoginPage(): JSX.Element {
         <div className="login-page-container">
             <div className="login-form-container">
                 <h2>Comercializa S.A.</h2>
-                <form id="loginForm" onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit}>
                     <div className="input-group">
                         <label htmlFor="username">Usuario</label>
                         <input
-                            type="text"
-                            id="username"
-                            name="username"
+                            id="username" name="username" type="text"
                             placeholder="Ingrese su usuario"
-                            required
-                            value={username}
+                            required value={username}
                             onChange={e => setUsername(e.target.value)}
                         />
                     </div>
                     <div className="input-group">
                         <label htmlFor="password">Contraseña</label>
                         <input
-                            type="password"
-                            id="password"
-                            name="password"
+                            id="password" name="password" type="password"
                             placeholder="Ingrese su contraseña"
-                            required
-                            value={password}
+                            required value={password}
                             onChange={e => setPassword(e.target.value)}
                         />
                     </div>
                     <button type="submit">Iniciar Sesión</button>
-                    {error && (
-                        <p id="error-message" className="error-msg">
-                            {error}
-                        </p>
-                    )}
+                    {error && <p className="error-msg">{error}</p>}
                 </form>
             </div>
         </div>
