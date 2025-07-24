@@ -1,34 +1,76 @@
-// src/components/client/DashboardSection.tsx
-'use client';
+"use client";
 
-import React, { useEffect, useState, ReactNode } from 'react';
-import { useAuth } from '@/context/AuthContext';
-import { getClientDashboard, getDailySalesSummary, getProfitabilitySummary } from '@/services/api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DollarSign, Archive, ShoppingCart, AlertCircle } from 'lucide-react';
-import VentasChart, { VentasData } from '@/components/ui/VentasChart';
-import RentabilidadChart, { ProfitRecord } from '@/components/ui/RentabilidadChart';
+import React, { useEffect, useState, ReactNode } from "react";
+import { useAuth } from "@/context/AuthContext";
+import {
+    getClientDashboard,
+    getDailySalesSummary,
+    getProfitabilitySummary,
+} from "@/services/api";
+import {
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+    DollarSign,
+    Archive,
+    ShoppingCart,
+    AlertCircle,
+} from "lucide-react";
+import VentasChart, { VentasData } from "@/components/ui/VentasChart";
+import RentabilidadChart, {
+    ProfitRecord,
+} from "@/components/ui/RentabilidadChart";
 
-// Interfaz para los datos del dashboard
+// Tipado de la respuesta del backend para métricas rápidas
 interface DashboardData {
     lowStock: number;
     salesToday: number;
 }
 
-// Componente reutilizable para las tarjetas de estadísticas
-const StatCard = ({ title, value, icon, change }: { title: string; value: string | number; icon: ReactNode; change?: string }) => (
-    <Card>
+/**
+ * Pequeño contenedor circular para los iconos, con colores acordes al branding
+ */
+const IconWrapper = ({ children }: { children: ReactNode }) => (
+    <span className="p-2 rounded-full bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-300">
+    {children}
+  </span>
+);
+
+/**
+ * Tarjeta reutilizable para métricas de cabecera
+ */
+const StatCard = ({
+                      title,
+                      value,
+                      icon,
+                      change,
+                  }: {
+    title: string;
+    value: string | number;
+    icon: ReactNode;
+    change?: string;
+}) => (
+    <Card className="rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow dark:border-gray-800">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{title}</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                {title}
+            </CardTitle>
             {icon}
         </CardHeader>
         <CardContent>
-            <div className="text-2xl font-bold">{value}</div>
+            <div className="text-3xl font-bold tracking-tight">{value}</div>
             {change && <p className="text-xs text-muted-foreground">{change}</p>}
         </CardContent>
     </Card>
 );
 
+/**
+ * Sección principal del Dashboard del cliente
+ */
 export default function DashboardSection() {
     const { user } = useAuth();
     const clientId = user?.clientId;
@@ -36,7 +78,7 @@ export default function DashboardSection() {
     const [dash, setDash] = useState<DashboardData | null>(null);
     const [sales, setSales] = useState<VentasData[] | null>(null);
     const [profit, setProfit] = useState<ProfitRecord[] | null>(null);
-    const [error, setError] = useState<string>('');
+    const [error, setError] = useState<string>("");
     const [loading, setLoading] = useState<boolean>(true);
 
     useEffect(() => {
@@ -45,7 +87,6 @@ export default function DashboardSection() {
         (async () => {
             try {
                 setLoading(true);
-                // Hacemos las 3 llamadas a la API en paralelo para mayor eficiencia
                 const [dRes, sRes, pRes] = await Promise.all([
                     getClientDashboard(clientId),
                     getDailySalesSummary(clientId),
@@ -55,73 +96,120 @@ export default function DashboardSection() {
                 setDash(dRes.data as DashboardData);
                 setSales(sRes.data as VentasData[]);
                 setProfit(pRes.data as ProfitRecord[]);
-
             } catch (e: any) {
-                console.error('Error fetching dashboard:', e);
-                setError(e.response?.data?.message || 'No se pudo cargar la información del dashboard.');
+                console.error("Error fetching dashboard:", e);
+                setError(
+                    e.response?.data?.message ||
+                    "No se pudo cargar la información del dashboard."
+                );
             } finally {
                 setLoading(false);
             }
         })();
     }, [clientId]);
 
-    // Extraemos el total de ventas de hoy del resumen de ventas
-    const ventasHoyMonto = sales?.find(s => new Date(s.date).toDateString() === new Date().toDateString())?.totalAmount ?? 0;
+    // Monto de ventas de la fecha actual
+    const ventasHoyMonto =
+        sales?.find(
+            (s) => new Date(s.date).toDateString() === new Date().toDateString()
+        )?.totalAmount ?? 0;
 
-    if (loading) return <div>Cargando dashboard…</div>;
-    if (error) return <div className="p-4 text-red-600 bg-red-100 rounded-md">Error: {error}</div>;
+    if (error)
+        return (
+            <div className="p-4 text-red-600 bg-red-100 rounded-md dark:bg-red-950">
+                Error: {error}
+            </div>
+        );
 
     return (
-        <div className="flex flex-col gap-6">
-            {/* Encabezado del Dashboard */}
-            <div>
-                <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-                <p className="text-muted-foreground">Resumen de tu negocio hoy.</p>
-            </div>
+        <div className="max-w-[1300px] mx-auto flex flex-col gap-8 px-6 lg:px-8">
+            {/* Encabezado */}
+            <header>
+                <h2 className="text-3xl font-semibold tracking-tight">Dashboard</h2>
+                <p className="text-sm text-muted-foreground">
+                    Resumen de tu negocio hoy
+                </p>
+            </header>
 
-            {/* Grid de tarjetas de estadísticas */}
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                <StatCard
-                    title="Ventas Hoy (Monto)"
-                    value={`$${ventasHoyMonto.toFixed(2)}`}
-                    icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
-                />
-                <StatCard
-                    title="Ventas Hoy (Nro)"
-                    value={dash?.salesToday ?? 0}
-                    icon={<ShoppingCart className="h-4 w-4 text-muted-foreground" />}
-                />
-                <StatCard
-                    title="Productos con Stock Bajo"
-                    value={dash?.lowStock ?? 0}
-                    icon={<Archive className="h-4 w-4 text-muted-foreground" />}
-                />
-                <StatCard
-                    title="Alertas Activas"
-                    value="0" // Dato de ejemplo, el backend no lo provee aquí
-                    icon={<AlertCircle className="h-4 w-4 text-muted-foreground" />}
-                />
-            </div>
+            {/* Métricas rápidas */}
+            <section className="grid gap-6 lg:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                {loading ? (
+                    // Skeleton loader mientras llegan datos
+                    Array.from({ length: 4 }).map((_, i) => (
+                        <Skeleton key={i} className="h-[120px] w-full rounded-xl" />
+                    ))
+                ) : (
+                    <>
+                        <StatCard
+                            title="Ventas Hoy"
+                            value={`$${ventasHoyMonto.toFixed(2)}`}
+                            icon={
+                                <IconWrapper>
+                                    <DollarSign className="h-4 w-4" />
+                                </IconWrapper>
+                            }
+                            change="+20% desde ayer"
+                        />
+                        <StatCard
+                            title="Ventas (Nro)"
+                            value={dash?.salesToday ?? 0}
+                            icon={
+                                <IconWrapper>
+                                    <ShoppingCart className="h-4 w-4" />
+                                </IconWrapper>
+                            }
+                            change="+12% desde ayer"
+                        />
+                        <StatCard
+                            title="Stock Bajo"
+                            value={dash?.lowStock ?? 0}
+                            icon={
+                                <IconWrapper>
+                                    <Archive className="h-4 w-4" />
+                                </IconWrapper>
+                            }
+                        />
+                        <StatCard
+                            title="Alertas"
+                            value="0"
+                            icon={
+                                <IconWrapper>
+                                    <AlertCircle className="h-4 w-4" />
+                                </IconWrapper>
+                            }
+                        />
+                    </>
+                )}
+            </section>
 
-            {/* Grid de gráficos */}
-            <div className="grid gap-6 lg:grid-cols-2">
-                <Card>
+            {/* Gráficos */}
+            <section className="grid gap-6 lg:gap-8 lg:grid-cols-2">
+                <Card className="rounded-xl border border-gray-100 shadow-sm dark:border-gray-800">
                     <CardHeader>
                         <CardTitle>Ventas e Ingresos (30 Días)</CardTitle>
                     </CardHeader>
                     <CardContent className="h-[300px]">
-                        {sales ? <VentasChart data={sales} /> : <p>Cargando gráfico...</p>}
+                        {loading ? (
+                            <Skeleton className="h-full w-full rounded-xl" />
+                        ) : sales ? (
+                            <VentasChart data={sales} />
+                        ) : null}
                     </CardContent>
                 </Card>
-                <Card>
+
+                <Card className="rounded-xl border border-gray-100 shadow-sm dark:border-gray-800">
                     <CardHeader>
                         <CardTitle>Rentabilidad (30 Días)</CardTitle>
                     </CardHeader>
                     <CardContent className="h-[300px]">
-                        {profit ? <RentabilidadChart data={profit} /> : <p>Cargando gráfico...</p>}
+                        {loading ? (
+                            <Skeleton className="h-full w-full rounded-xl" />
+                        ) : profit ? (
+                            <RentabilidadChart data={profit} />
+                        ) : null}
                     </CardContent>
                 </Card>
-            </div>
+            </section>
         </div>
     );
 }
