@@ -1,208 +1,165 @@
 // src/components/pages/ArticleFormPage.tsx
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { getProductById, createProduct, updateProduct } from '@/services/api';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { getProductById, createProduct, updateProduct } from '@/services/api';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { Textarea } from "@/components/ui/textarea";
 
+// Interfaz para los datos del formulario (ahora usa 'quantity')
 interface FormData {
     code: string;
     name: string;
     description: string;
-    quantity: number;
+    quantity: number; // <-- CAMBIO DE 'stock' A 'quantity'
     cost: number;
     price: number;
 }
 
-export default function ArticleFormPage() {
-    const { user } = useAuth();
-    const clientId = user?.clientId;
+function ArticleForm() {
     const router = useRouter();
-    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const { user } = useAuth();
 
-    // Extraemos el parámetro `[id]` de la URL
-    const parts = pathname.split('/');
-    const id = parts[parts.length - 1] !== 'inventory-form' ? parts[parts.length - 1] : null;
-    const isEditing = Boolean(id);
+    const productId = searchParams.get('id');
+    const isEditing = Boolean(productId);
 
+    // Estado inicial del formulario (ahora usa 'quantity')
     const [formData, setFormData] = useState<FormData>({
         code: '',
         name: '',
         description: '',
-        quantity: 0,
+        quantity: 0, // <-- CAMBIO DE 'stock' A 'quantity'
         cost: 0,
         price: 0,
     });
     const [loading, setLoading] = useState<boolean>(isEditing);
     const [error, setError] = useState<string>('');
 
-    // Carga inicial en edición
+    // Al editar, mapeamos el 'stock' que viene de la API al campo 'quantity' del formulario
     useEffect(() => {
-        if (!isEditing || !clientId || !id) return;
-
-        (async () => {
-            try {
-                const { data } = await getProductById(clientId, id);
-                setFormData({
-                    code: data.code ?? '',
-                    name: data.name ?? '',
-                    description: data.description ?? '',
-                    quantity: data.quantity ?? 0,
-                    cost: data.cost ?? 0,
-                    price: data.price ?? 0,
-                });
-            } catch (err: any) {
-                console.error('Error fetching product:', err);
-                setError(err.response?.data?.message || 'No se pudieron cargar los datos del artículo.');
-            } finally {
-                setLoading(false);
-            }
-        })();
-    }, [isEditing, clientId, id]);
+        if (isEditing && user?.clientId && productId) {
+            getProductById(user.clientId, productId)
+                .then(response => {
+                    const { data } = response;
+                    setFormData({
+                        code: data.code || '',
+                        name: data.name || '',
+                        description: data.description || '',
+                        quantity: data.stock || 0, // <-- MAPEA 'stock' A 'quantity'
+                        cost: data.cost || 0,
+                        price: data.price || 0,
+                    });
+                })
+                .catch(err => setError('No se pudo cargar el producto para editar.'))
+                .finally(() => setLoading(false));
+        }
+    }, [isEditing, productId, user?.clientId]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
+        const processedValue = type === 'number' ? parseFloat(value) || 0 : value;
         setFormData(prev => ({
             ...prev,
-            [name]:
-                type === 'number'
-                    ? parseFloat(value) || 0
-                    : value,
-        } as FormData));
+            [name]: processedValue,
+        }));
     };
 
-    const handleSubmit = async (e: FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
+        console.log("Datos a enviar al backend:", formData); // Mantenemos el log para verificar
 
-        if (!clientId) {
-            setError('No se pudo identificar al cliente. Por favor, recarga la página.');
+        if (!user?.clientId) {
+            setError('Error de autenticación.');
             return;
         }
 
         try {
-            if (isEditing && id) {
-                await updateProduct(clientId, id, formData);
-                alert('Artículo actualizado con éxito');
-            } else {
-                await createProduct(clientId, formData);
-                alert('Artículo creado con éxito');
-            }
-            router.push('/panel#inventory');
+            setLoading(true);
+            const action = isEditing
+                ? updateProduct(user.clientId, productId!, formData)
+                : createProduct(user.clientId, formData);
+
+            await action;
+            router.push('/panel');
         } catch (err: any) {
-            console.error('Error saving article:', err);
-            setError(err.response?.data?.message || 'Error al guardar el artículo.');
+            setError(err.response?.data?.message || 'Ocurrió un error al guardar.');
+        } finally {
+            setLoading(false);
         }
     };
 
-    if (loading) return <div>Cargando...</div>;
+    if (isEditing && loading) {
+        return <div className="p-6">Cargando datos del artículo...</div>;
+    }
 
     return (
-        <div className="container-form">
-            <header className="form-header">
-                <h1>{isEditing ? 'Editar Artículo' : 'Nuevo Artículo'}</h1>
-            </header>
-            <main>
-                <form id="form-articulo" onSubmit={handleSubmit}>
-                    {/** Código */}
-                    <div className="form-group">
-                        <label htmlFor="code">Código:</label>
-                        <input
-                            type="text"
-                            id="code"
-                            name="code"
-                            value={formData.code}
-                            onChange={handleChange}
-                            required
-                        />
-                    </div>
-
-                    {/** Nombre */}
-                    <div className="form-group">
-                        <label htmlFor="name">Nombre:</label>
-                        <input
-                            type="text"
-                            id="name"
-                            name="name"
-                            value={formData.name}
-                            onChange={handleChange}
-                            required
-                        />
-                    </div>
-
-                    {/** Descripción */}
-                    <div className="form-group">
-                        <label htmlFor="description">Descripción:</label>
-                        <textarea
-                            id="description"
-                            name="description"
-                            value={formData.description}
-                            onChange={handleChange}
-                            rows={3}
-                        />
-                    </div>
-
-                    {/** Stock */}
-                    <div className="form-group">
-                        <label htmlFor="quantity">Stock:</label>
-                        <input
-                            type="number"
-                            id="quantity"
-                            name="quantity"
-                            min={0}
-                            value={formData.quantity}
-                            onChange={handleChange}
-                            required
-                        />
-                    </div>
-
-                    {/** Costo */}
-                    <div className="form-group">
-                        <label htmlFor="cost">Costo:</label>
-                        <input
-                            type="number"
-                            id="cost"
-                            name="cost"
-                            min={0}
-                            step="0.01"
-                            value={formData.cost}
-                            onChange={handleChange}
-                            required
-                        />
-                    </div>
-
-                    {/** Precio */}
-                    <div className="form-group">
-                        <label htmlFor="price">Precio:</label>
-                        <input
-                            type="number"
-                            id="price"
-                            name="price"
-                            min={0}
-                            step="0.01"
-                            value={formData.price}
-                            onChange={handleChange}
-                            required
-                        />
-                    </div>
-
-                    {error && <p className="error-message">{error}</p>}
-
-                    <div className="form-actions">
-                        <button type="submit" className="btn-submit">
-                            Guardar
-                        </button>
-                        <button
-                            type="button"
-                            className="btn-cancel"
-                            onClick={() => router.push('/panel#inventory')}
-                        >
+        <div className="flex justify-center items-start min-h-screen bg-muted/40 p-4 sm:p-6">
+            <form onSubmit={handleSubmit} className="w-full max-w-2xl">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>{isEditing ? 'Editar Artículo' : 'Nuevo Artículo'}</CardTitle>
+                        <CardDescription>
+                            {isEditing ? 'Actualiza los detalles de tu producto.' : 'Completa los datos para crear un nuevo producto.'}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {/* ... otros campos sin cambios ... */}
+                            <div className="grid gap-2">
+                                <Label htmlFor="code">Código</Label>
+                                <Input id="code" name="code" value={formData.code} onChange={handleChange} required />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="name">Nombre</Label>
+                                <Input id="name" name="name" value={formData.name} onChange={handleChange} required />
+                            </div>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="description">Descripción</Label>
+                            <Textarea id="description" name="description" value={formData.description} onChange={handleChange} placeholder="Describe brevemente el producto..." />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            {/* --- CAMBIO EN EL INPUT DE STOCK --- */}
+                            <div className="grid gap-2">
+                                <Label htmlFor="quantity">Stock</Label>
+                                <Input id="quantity" name="quantity" type="number" value={formData.quantity} onChange={handleChange} required />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="cost">Costo</Label>
+                                <Input id="cost" name="cost" type="number" step="0.01" value={formData.cost} onChange={handleChange} required />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="price">Precio</Label>
+                                <Input id="price" name="price" type="number" step="0.01" value={formData.price} onChange={handleChange} required />
+                            </div>
+                        </div>
+                        {error && <p className="text-sm text-destructive">{error}</p>}
+                    </CardContent>
+                    <CardFooter className="flex justify-end gap-2">
+                        <Button variant="outline" type="button" onClick={() => router.back()}>
                             Cancelar
-                        </button>
-                    </div>
-                </form>
-            </main>
+                        </Button>
+                        <Button type="submit" disabled={loading}>
+                            {loading ? 'Guardando...' : 'Guardar Artículo'}
+                        </Button>
+                    </CardFooter>
+                </Card>
+            </form>
         </div>
+    );
+}
+
+export default function ArticleFormPage() {
+    return (
+        <Suspense fallback={<div className="p-6">Cargando formulario...</div>}>
+            <ArticleForm />
+        </Suspense>
     );
 }
