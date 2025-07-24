@@ -1,5 +1,5 @@
 /* =========================================================
-   global.css – configuración Tailwind + tokens de color
+   global.css – Tailwind config + refined colour tokens
    ========================================================= */
 
 /* Importa capas básicas, componentes y utilidades de Tailwind */
@@ -13,67 +13,84 @@
 @layer base {
     :root {
         /* ---------- Light mode ---------- */
-        --background: 0 0% 98%;
-        --foreground: 240 10% 3.9%;
+        /* Base neutro ligeramente más gris para reducir brillo */
+        --background: 220 10% 97%;
+        --foreground: 222 16% 15%;
 
         --card: 0 0% 100%;
-        --card-foreground: 240 10% 3.9%;
+        --card-foreground: var(--foreground);
 
-        --popover: 0 0% 100%;
-        --popover-foreground: 240 10% 3.9%;
+        --popover: var(--card);
+        --popover-foreground: var(--foreground);
 
-        /* Brand violet */
-        --primary: 262.1 83.3% 57.8%;
+        /* Marca: violeta optimizado para contraste WCAG AA */
+        --primary: 265 70% 60%;
         --primary-foreground: 210 40% 98%;
 
-        --secondary: 217.2 32.6% 92%;
-        --secondary-foreground: 240 10% 3.9%;
+        /* Complementario suave (teal) para resaltar zonas secundarias */
+        --secondary: 188 34% 92%;
+        --secondary-foreground: 222 16% 20%;
 
-        --muted: 210 16.7% 93%;
-        --muted-foreground: 215 19% 35%;
+        /* Zonas neutras / fondos alternos */
+        --muted: 220 8% 92%;
+        --muted-foreground: 222 8% 40%;
 
-        --accent: 262.1 83.3% 95%;
-        --accent-foreground: 262.1 83.3% 40%;
+        /* Acentos sutiles: se usa en focos, tags, badges */
+        --accent: 188 72% 94%;
+        --accent-foreground: 188 60% 35%;
 
-        --destructive: 0 62.8% 55%;
-        --destructive-foreground: 0 85.7% 97.3%;
+        /* Estados */
+        --success: 144 40% 50%;
+        --success-foreground: 144 30% 95%;
 
-        --border: 240 5% 92%;
-        --input: 240 5% 92%;
-        --ring: 263.4 70% 50.4%;
+        --warning: 39 100% 55%;
+        --warning-foreground: 210 40% 98%;
+
+        --destructive: 0 65% 50%;
+        --destructive-foreground: 0 85% 95%;
+
+        --border: 220 8% 90%;
+        --input: var(--border);
+        --ring: 265 70% 55%;
 
         --radius: 0.5rem;
     }
 
     /* ---------- Dark mode ---------- */
     .dark {
-        --background: 240 10% 3.9%;
-        --foreground: 210 40% 98%;
+        --background: 222 16% 10%;
+        --foreground: 210 20% 90%;
 
-        --card: 240 10% 8%;
-        --card-foreground: 210 40% 98%;
+        --card: 222 16% 14%;
+        --card-foreground: var(--foreground);
 
-        --popover: 240 10% 8%;
-        --popover-foreground: 210 40% 98%;
+        --popover: var(--card);
+        --popover-foreground: var(--foreground);
 
-        --primary: 262.1 83.3% 57.8%;
+        --primary: 265 70% 60%;
         --primary-foreground: 210 40% 98%;
 
-        --secondary: 217.2 32.6% 17.5%;
-        --secondary-foreground: 210 40% 98%;
+        --secondary: 222 16% 20%;
+        --secondary-foreground: var(--foreground);
 
-        --muted: 217.2 32.6% 17.5%;
-        --muted-foreground: 215 20.2% 65.1%;
+        --muted: 222 12% 24%;
+        --muted-foreground: 225 10% 70%;
 
-        --accent: 217.2 32.6% 17.5%;
-        --accent-foreground: 210 40% 98%;
+        --accent: 188 45% 30%;
+        --accent-foreground: 188 60% 90%;
 
-        --destructive: 0 62.8% 30.6%;
-        --destructive-foreground: 0 85.7% 97.3%;
+        --success: 144 35% 45%;
+        --success-foreground: 144 30% 90%;
 
-        --border: 217.2 15% 24%;
-        --input: 217.2 15% 24%;
-        --ring: 263.4 70% 50.4%;
+        --warning: 39 100% 45%;
+        --warning-foreground: 210 40% 98%;
+
+        --destructive: 0 65% 35%;
+        --destructive-foreground: 0 85% 95%;
+
+        --border: 222 10% 25%;
+        --input: var(--border);
+        --ring: 265 70% 55%;
     }
 }
 
@@ -95,15 +112,19 @@
    ---------------------------------------------------------*/
 @layer utilities {
     .skeleton {
-        @apply relative overflow-hidden rounded-md bg-muted/50;
+        @apply relative overflow-hidden rounded-md bg-muted/40; /* 40% para reducir brillo */
     }
     .skeleton::after {
         content: "";
-        @apply absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/60 to-transparent;
+        @apply absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent;
     }
     @keyframes shimmer {
         100% {
             transform: translateX(100%);
         }
+    }
+    /* Sombra suave reutilizable */
+    .shadow-soft {
+        @apply shadow-md/10;
     }
 }

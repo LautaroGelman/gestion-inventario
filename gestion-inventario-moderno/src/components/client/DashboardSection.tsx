@@ -188,12 +188,15 @@ export default function DashboardSection() {
                     <CardHeader>
                         <CardTitle>Ventas e Ingresos (30 Días)</CardTitle>
                     </CardHeader>
-                    <CardContent className="h-[300px]">
-                        {loading ? (
-                            <Skeleton className="h-full w-full rounded-xl" />
-                        ) : sales ? (
-                            <VentasChart data={sales} />
-                        ) : null}
+                    <CardContent className="h-[300px] p-0 pr-4">
+                        {/* ESTA ES LA CORRECCIÓN: el div wrapper con altura y anchura al 100% */}
+                        <div className="h-full w-full">
+                            {loading ? (
+                                <Skeleton className="h-full w-full rounded-xl" />
+                            ) : sales ? (
+                                <VentasChart data={sales} />
+                            ) : null}
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -201,12 +204,15 @@ export default function DashboardSection() {
                     <CardHeader>
                         <CardTitle>Rentabilidad (30 Días)</CardTitle>
                     </CardHeader>
-                    <CardContent className="h-[300px]">
-                        {loading ? (
-                            <Skeleton className="h-full w-full rounded-xl" />
-                        ) : profit ? (
-                            <RentabilidadChart data={profit} />
-                        ) : null}
+                    <CardContent className="h-[300px] p-0 pr-4">
+                        {/* Y AQUÍ TAMBIÉN: el div wrapper */}
+                        <div className="h-full w-full">
+                            {loading ? (
+                                <Skeleton className="h-full w-full rounded-xl" />
+                            ) : profit ? (
+                                <RentabilidadChart data={profit} />
+                            ) : null}
+                        </div>
                     </CardContent>
                 </Card>
             </section>
