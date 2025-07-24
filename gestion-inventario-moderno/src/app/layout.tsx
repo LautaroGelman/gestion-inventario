@@ -2,6 +2,8 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { AuthProvider } from '@/context/AuthContext';
+import { ThemeProvider } from '@/components/ThemeProvider'; // Importa el ThemeProvider
+
 import './globals.css'; // <--- ESTA LÍNEA ES LA MÁS IMPORTANTE
 
 const inter = Inter({ subsets: ['latin'] });

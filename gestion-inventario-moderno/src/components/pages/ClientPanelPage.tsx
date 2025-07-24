@@ -5,27 +5,13 @@ import React, { useState, useEffect, useMemo, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useCashSession } from '@/hooks/useCashSession';
-
-// Importamos los iconos de lucide-react (asegúrate de tenerlo instalado)
 import {
-    LayoutDashboard,
-    Archive,
-    ShoppingCart,
-    Users,
-    LineChart,
-    LogOut,
-    Building,
-    Undo2,
-    ChevronsLeft,
-    ChevronsRight,
-    UserCircle,
+    LayoutDashboard, Archive, ShoppingCart, Users, LineChart, LogOut,
+    Building, Undo2, ChevronsLeft, ChevronsRight, UserCircle,
 } from 'lucide-react';
-
-// Importamos los componentes de UI
 import CashSessionModal from '@/components/client/CashSessionModal';
 import { Button } from '@/components/ui/button';
-
-// Importamos las secciones
+import { ThemeToggleButton } from '@/components/ui/ThemeToggleButton'; // Ruta correcta
 import DashboardSection from '@/components/client/DashboardSection';
 import InventorySection from '@/components/client/InventorySection';
 import SalesSection from '@/components/client/SalesSection';
@@ -34,7 +20,6 @@ import ReportsSection from '@/components/client/ReportsSection';
 import EmployeesSection from '@/components/client/EmployeesSection';
 import ReturnsSection from '@/components/client/ReturnsSection';
 
-// --- Lógica de roles y secciones (sin cambios) ---
 const ROLE_TO_SECTIONS: Record<string, string[]> = {
     CLIENT: ['dashboard', 'inventory', 'sales', 'providers', 'reports', 'employees', 'returns'],
     ADMINISTRADOR: ['dashboard', 'inventory', 'sales', 'providers', 'reports', 'employees', 'returns'],
@@ -45,15 +30,14 @@ const ROLE_TO_SECTIONS: Record<string, string[]> = {
 };
 const cleanRole = (r: string) => r.replace(/^ROLE_/, '');
 
-// --- Mapeo de secciones a iconos y nombres ---
 const sectionConfig: { [key: string]: { icon: ReactNode; label: string } } = {
-    dashboard: { icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
-    inventory: { icon: <Archive size={20} />, label: 'Inventario' },
-    sales: { icon: <ShoppingCart size={20} />, label: 'Ventas' },
-    providers: { icon: <Building size={20} />, label: 'Proveedores' },
-    reports: { icon: <LineChart size={20} />, label: 'Reportes' },
-    employees: { icon: <Users size={20} />, label: 'Empleados' },
-    returns: { icon: <Undo2 size={20} />, label: 'Devoluciones' },
+    dashboard: { icon: <LayoutDashboard size={30} />, label: 'Dashboard' },
+    inventory: { icon: <Archive size={30} />, label: 'Inventario' },
+    sales: { icon: <ShoppingCart size={30} />, label: 'Ventas' },
+    providers: { icon: <Building size={30} />, label: 'Proveedores' },
+    reports: { icon: <LineChart size={30} />, label: 'Reportes' },
+    employees: { icon: <Users size={30} />, label: 'Empleados' },
+    returns: { icon: <Undo2 size={30} />, label: 'Devoluciones' },
 };
 
 export default function ClientPanelPage() {
@@ -62,8 +46,6 @@ export default function ClientPanelPage() {
     const { session, isModalOpen, modalMode, handleOpenSession, handleCloseSession, showCloseModal, setModalOpen } = useCashSession();
 
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-
-    // --- Lógica de roles y sección activa (sin cambios) ---
     const roles = useMemo(() => user?.roles ?? [], [user]);
     const sectionsAllowed = useMemo(() => [...new Set(roles.map(cleanRole).flatMap(r => ROLE_TO_SECTIONS[r] || []))], [roles]);
     const [activeSection, setActiveSection] = useState('dashboard');
@@ -73,7 +55,6 @@ export default function ClientPanelPage() {
         setActiveSection(defaultSection);
     }, [sectionsAllowed]);
 
-    // --- Renderizado de sección (sin cambios) ---
     const renderSection = () => {
         switch (activeSection) {
             case 'inventory': return <InventorySection />;
@@ -106,18 +87,15 @@ export default function ClientPanelPage() {
             <div className="flex h-screen bg-background">
                 {/* SIDEBAR */}
                 <aside className={`flex flex-col bg-card text-card-foreground transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'w-20' : 'w-64'}`}>
-                    {/* Encabezado del Sidebar */}
                     <div className="flex items-center h-16 px-4 border-b">
                         {!sidebarCollapsed && <h1 className="text-lg font-bold">Sistema POS</h1>}
                     </div>
-
-                    {/* Navegación Principal */}
                     <nav className="flex-1 px-4 py-4 space-y-2">
                         {sectionsAllowed.map(section => (
                             <button
                                 key={section}
                                 onClick={() => setActiveSection(section)}
-                                className={`flex items-center w-full px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                                className={`flex items-center w-full px-3 py-4 text-xl font-medium rounded-md transition-colors ${
                                     activeSection === section
                                         ? 'bg-primary text-primary-foreground'
                                         : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
@@ -128,8 +106,6 @@ export default function ClientPanelPage() {
                             </button>
                         ))}
                     </nav>
-
-                    {/* Footer del Sidebar */}
                     <div className="px-4 py-4 border-t">
                         <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : ''}`}>
                             <UserCircle size={sidebarCollapsed ? 32 : 40} />
@@ -153,7 +129,9 @@ export default function ClientPanelPage() {
                         <Button variant="ghost" size="icon" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
                             {sidebarCollapsed ? <ChevronsRight /> : <ChevronsLeft />}
                         </Button>
-                        {/* Aquí puedes agregar más elementos al header si lo necesitas */}
+                        <div className="ml-auto">
+                            <ThemeToggleButton />
+                        </div>
                     </header>
                     <main className="flex-1 p-6 overflow-auto">
                         {renderSection()}

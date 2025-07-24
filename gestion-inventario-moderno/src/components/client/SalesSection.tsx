@@ -5,7 +5,17 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { getSales } from '@/services/api';
+import { format } from 'date-fns';
 
+// Importando componentes de UI de shadcn/ui
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PlusCircle, Undo2, ShoppingCart } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+
+
+// Interfaz para tipar los datos de una venta
 interface SaleRecord {
     id: number;
     cliente: string;
@@ -45,55 +55,90 @@ export default function SalesSection() {
     };
 
     const handleReturn = (id: number) => {
-        router.push(`/return-sale/${id}`);
+        // Esta ruta debe coincidir con la que maneja las devoluciones
+        router.push(`/return-form/${id}`);
     };
 
-    if (loading) return <div>Cargando ventas…</div>;
-    if (error)   return <div className="error-message">Error: {error}</div>;
+    if (error) return <div className="p-4 text-red-600 bg-red-100 rounded-md">Error: {error}</div>;
 
     return (
-        <div className="sales-section">
-            <div className="section-header">
-                <h2>Ventas</h2>
-                <button type="button" className="btn-new" onClick={handleNewSale}>
+        <Card>
+            <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                    <CardTitle>Historial de Ventas</CardTitle>
+                    <CardDescription>Aquí puedes ver todas las ventas registradas.</CardDescription>
+                </div>
+                <Button onClick={handleNewSale} className="flex items-center gap-2">
+                    <PlusCircle size={18} />
                     Registrar nueva venta
-                </button>
-            </div>
-
-            <table>
-                <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Cliente</th>
-                    <th>Cantidad</th>
-                    <th>Total</th>
-                    <th>Método</th>
-                    <th>Fecha</th>
-                    <th>Acciones</th>
-                </tr>
-                </thead>
-                <tbody>
-                {sales.map(sale => (
-                    <tr key={sale.id}>
-                        <td>{sale.id}</td>
-                        <td>{sale.cliente}</td>
-                        <td>{sale.quantity}</td>
-                        <td>${(sale.totalAmount ?? 0).toFixed(2)}</td>
-                        <td>{sale.paymentMethod}</td>
-                        <td>{new Date(sale.fecha).toLocaleString()}</td>
-                        <td>
-                            <button
-                                type="button"
-                                className="btn-action"
-                                onClick={() => handleReturn(sale.id)}
-                            >
-                                Devolver
-                            </button>
-                        </td>
-                    </tr>
-                ))}
-                </tbody>
-            </table>
-        </div>
+                </Button>
+            </CardHeader>
+            <CardContent>
+                <div className="border rounded-md">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-[80px]">ID</TableHead>
+                                <TableHead>Cliente</TableHead>
+                                <TableHead className="text-center">Items</TableHead>
+                                <TableHead>Método</TableHead>
+                                <TableHead>Fecha</TableHead>
+                                <TableHead className="text-right">Total</TableHead>
+                                <TableHead className="text-center">Acciones</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                // Esqueleto de carga para una mejor UX
+                                Array.from({ length: 3 }).map((_, index) => (
+                                    <TableRow key={index}>
+                                        <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                                        <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                                    </TableRow>
+                                ))
+                            ) : sales.length > 0 ? (
+                                sales.map(sale => (
+                                    <TableRow key={sale.id}>
+                                        <TableCell className="font-medium">#{sale.id}</TableCell>
+                                        <TableCell>{sale.cliente}</TableCell>
+                                        <TableCell className="text-center">{sale.quantity}</TableCell>
+                                        <TableCell>{sale.paymentMethod}</TableCell>
+                                        <TableCell>
+                                            {format(new Date(sale.fecha), "dd/MM/yyyy HH:mm")}
+                                        </TableCell>
+                                        <TableCell className="text-right font-semibold">
+                                            ${(sale.totalAmount ?? 0).toFixed(2)}
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleReturn(sale.id)}
+                                            >
+                                                <Undo2 className="h-4 w-4 mr-2" />
+                                                Devolver
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                // Estado cuando no hay ventas
+                                <TableRow>
+                                    <TableCell colSpan={7} className="h-24 text-center">
+                                        <ShoppingCart className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                                        No hay ventas registradas.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+            </CardContent>
+        </Card>
     );
 }
