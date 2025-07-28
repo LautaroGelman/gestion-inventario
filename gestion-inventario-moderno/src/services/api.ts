@@ -2,6 +2,8 @@
 
 import axios, { AxiosInstance } from 'axios';
 
+import type { EstadoResultados, Nomina, FlujoCaja, AnalisisGastos, ValorInventario } from '@/types/financials';
+
 // Configuración de la URL base según entorno
 const baseURL: string =
     process.env.NODE_ENV === 'development'
@@ -263,4 +265,36 @@ export const closeCashSession = (
 export const getActiveCashSession = (clientId: string) =>
     apiClient.get(`/client-panel/${clientId}/cash-session/active`);
 
+// ────────────────────────────────────────────────────────────────
+// NUEVOS REPORTES FINANCIEROS
+// ────────────────────────────────────────────────────────────────
+
+interface DateRangeParams {
+    from: string; // formato YYYY-MM-DD
+    to: string;   // formato YYYY-MM-DD
+}
+
+// 1. Endpoint para Estado de Resultados
+export const getEstadoResultados = (clientId: string | number, params: DateRangeParams) =>
+    apiClient.get<EstadoResultados>(`/client-panel/${clientId}/reports/estado-resultados`, { params });
+
+// 2. Endpoint para Nómina
+export const getNomina = (clientId: string | number, params: DateRangeParams) =>
+    apiClient.get<Nomina>(`/client-panel/${clientId}/reports/nomina`, { params });
+
+// 3. Endpoint para Flujo de Caja
+export const getFlujoCaja = (clientId: string | number, params: DateRangeParams) =>
+    apiClient.get<FlujoCaja>(`/client-panel/${clientId}/reports/flujo-caja`, { params });
+
+// 4. Endpoint para Análisis de Gastos
+export const getAnalisisGastos = (clientId: string | number, params: DateRangeParams) =>
+    apiClient.get<AnalisisGastos[]>(`/client-panel/${clientId}/reports/analisis-gastos`, { params });
+
+// 5. Endpoint para Valor de Inventario (no necesita fechas)
+export const getValorInventario = (clientId: string | number) =>
+    apiClient.get<ValorInventario>(`/client-panel/${clientId}/reports/valor-inventario`);
+
+
 export default apiClient;
+
+
