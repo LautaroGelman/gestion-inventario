@@ -3,19 +3,32 @@
 
 import { useState, useEffect, FormEvent } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import apiClient from '@/services/api';
+import { getSaleById, createSaleReturn } from '@/services/api'; // Asumiendo que estas funciones existen en api.ts
+import apiClient from '@/services/api'; // Para la lista de devoluciones
 
+// Componentes de UI
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
+import { AlertCircle, PlusCircle, ArrowLeft, Search, Package2, Undo2 } from 'lucide-react';
+import { format } from 'date-fns';
+
+// Interfaces para tipado
 interface ReturnRecord {
     saleReturnId: string;
     saleId: string;
     returnedAt?: string;
-    returnDate?: string;
+    returnDate?: string; // Compatibilidad con el DTO anterior
     reason: string;
 }
 
 interface SaleItem {
     saleItemId: number;
-    productId: string;
+    productId: string; // Asumiendo que el DTO de venta trae el nombre/código del producto
+    productName: string; // Necesitaríamos este dato del backend
     quantity: number;
 }
 
@@ -25,220 +38,216 @@ interface Sale {
     items: SaleItem[];
 }
 
-export default function ReturnsSection() {
+// --- Vista para la lista de devoluciones ---
+const ReturnsList = ({ onNewReturnClick }: { onNewReturnClick: () => void }) => {
     const { user } = useAuth();
-    const clientId = user?.clientId;
-    const [mode, setMode] = useState<'list' | 'form'>('list');
-
-    // List state
     const [returnsList, setReturnsList] = useState<ReturnRecord[]>([]);
-    const [filterSaleId, setFilterSaleId] = useState<string>('');
-    const [listLoading, setListLoading] = useState<boolean>(false);
-    const [listMsg, setListMsg] = useState<string>('');
-
-    // Form state
-    const [saleId, setSaleId] = useState<string>('');
-    const [sale, setSale] = useState<Sale | null>(null);
-    const [returnQty, setReturnQty] = useState<Record<number, number>>({});
-    const [reason, setReason] = useState<string>('');
-    const [formLoading, setFormLoading] = useState<boolean>(false);
-    const [formMsg, setFormMsg] = useState<string>('');
-
-    const loadReturns = async () => {
-        setListMsg('');
-        setListLoading(true);
-        try {
-            const params: Record<string, string> = {};
-            if (filterSaleId) params.saleId = filterSaleId;
-            const response = await apiClient.get<ReturnRecord[]>(
-                `/client-panel/${clientId}/returns`, { params }
-            );
-            const data = response.data;
-            setReturnsList(data);
-            if (data.length === 0) setListMsg('No se encontraron devoluciones.');
-        } catch (err: any) {
-            console.error(err);
-            setListMsg('Error al cargar devoluciones.');
-        } finally {
-            setListLoading(false);
-        }
-    };
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
 
     useEffect(() => {
-        if (mode === 'list') loadReturns();
-    }, [mode, clientId]);
+        if (!user?.clientId) return;
+        const loadReturns = async () => {
+            setLoading(true);
+            try {
+                const response = await apiClient.get<ReturnRecord[]>(`/client-panel/${user.clientId}/returns`);
+                setReturnsList(response.data);
+            } catch (err: any) {
+                setError('Error al cargar el historial de devoluciones.');
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadReturns();
+    }, [user?.clientId]);
+
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Historial de Devoluciones</CardTitle>
+                    <CardDescription>Consulta todas las devoluciones procesadas.</CardDescription>
+                </div>
+                <Button onClick={onNewReturnClick}><PlusCircle className="mr-2 h-4 w-4" /> Nueva Devolución</Button>
+            </CardHeader>
+            <CardContent>
+                <div className="border rounded-md">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>ID Devolución</TableHead>
+                                <TableHead>ID Venta Original</TableHead>
+                                <TableHead>Fecha</TableHead>
+                                <TableHead>Motivo</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loading && <TableRow><TableCell colSpan={4} className="h-24 text-center">Cargando...</TableCell></TableRow>}
+                            {error && <TableRow><TableCell colSpan={4} className="h-24 text-center text-destructive">{error}</TableCell></TableRow>}
+                            {!loading && !error && returnsList.length === 0 && (
+                                <TableRow><TableCell colSpan={4} className="h-24 text-center">No se encontraron devoluciones.</TableCell></TableRow>
+                            )}
+                            {!loading && !error && returnsList.map(r => (
+                                <TableRow key={r.saleReturnId}>
+                                    <TableCell className="font-medium">#{r.saleReturnId}</TableCell>
+                                    <TableCell>#{r.saleId}</TableCell>
+                                    <TableCell>{format(new Date(r.returnDate || r.returnedAt!), 'dd/MM/yyyy HH:mm')}</TableCell>
+                                    <TableCell>{r.reason}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
+
+// --- Vista para el formulario de nueva devolución ---
+const NewReturnForm = ({ onBackClick }: { onBackClick: () => void }) => {
+    const { user } = useAuth();
+    const [saleId, setSaleId] = useState('');
+    const [sale, setSale] = useState<Sale | null>(null);
+    const [returnQty, setReturnQty] = useState<Record<number, number>>({});
+    const [reason, setReason] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
     const fetchSale = async () => {
-        setFormMsg('');
+        if (!user?.clientId || !saleId) return;
+        setError('');
         setSale(null);
         setReturnQty({});
-        if (!saleId) return;
+        setLoading(true);
         try {
-            setFormLoading(true);
-            const response = await apiClient.get<Sale>(
-                `/client-panel/${clientId}/sales/${saleId}`
-            );
-            setSale(response.data);
+            // NOTA: Esta llamada asume que el DTO de `getSaleById` incluye `productName` en cada item.
+            const response = await getSaleById(user.clientId, saleId);
+            setSale(response.data as Sale);
         } catch (err: any) {
-            console.error(err);
-            setFormMsg(err.response?.data?.message || 'Venta no encontrada');
+            setError(err.response?.data?.message || 'Venta no encontrada o error en la búsqueda.');
         } finally {
-            setFormLoading(false);
+            setLoading(false);
         }
     };
 
     const handleQtyChange = (saleItemId: number, max: number, value: string) => {
-        const qty = Number(value);
-        if (qty < 0 || qty > max) return;
+        const qty = parseInt(value, 10);
+        if (isNaN(qty) || qty < 0 || qty > max) return;
         setReturnQty(prev => ({ ...prev, [saleItemId]: qty }));
     };
 
-    const handleSubmitReturn = async (e: FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
+        if (!user?.clientId || !sale) return;
         const items = Object.entries(returnQty)
             .filter(([, qty]) => qty > 0)
-            .map(([saleItemId, quantity]) => (
-                { saleItemId: Number(saleItemId), quantity }
-            ));
+            .map(([saleItemId, quantity]) => ({ saleItemId: Number(saleItemId), quantity }));
+
         if (items.length === 0) {
-            setFormMsg('Selecciona al menos un artículo con cantidad mayor a 0');
+            setError('Debes indicar la cantidad a devolver para al menos un producto.');
             return;
         }
         if (!reason.trim()) {
-            setFormMsg('Indica el motivo de la devolución');
+            setError('El motivo de la devolución es obligatorio.');
             return;
         }
+
+        setLoading(true);
+        setError('');
         try {
-            setFormLoading(true);
-            await apiClient.post(
-                `/client-panel/${clientId}/returns`,
-                { saleId: Number(saleId), reason, items }
-            );
-            setFormMsg('✅ Devolución registrada correctamente');
-            setSale(null);
-            setSaleId('');
-            setReason('');
-            setReturnQty({});
+            await createSaleReturn(user.clientId, { saleId: sale.id, reason, items });
+            alert('Devolución registrada correctamente.');
+            onBackClick(); // Vuelve a la lista
         } catch (err: any) {
-            console.error(err);
-            setFormMsg(err.response?.data?.message || 'Error al registrar la devolución');
+            setError(err.response?.data?.message || 'Error al registrar la devolución.');
         } finally {
-            setFormLoading(false);
+            setLoading(false);
         }
     };
 
     return (
-        <div className="returns-section">
-            <div className="top-bar">
-                <h2>Devoluciones</h2>
-                {mode === 'list' ? (
-                    <button className="btn-primary" onClick={() => {
-                        setMode('form');
-                        setFormMsg('');
-                    }}>
-                        Nueva devolución
-                    </button>
-                ) : (
-                    <button className="btn-secondary" onClick={() => {
-                        setMode('list');
-                        setListMsg('');
-                    }}>
-                        Volver al listado
-                    </button>
-                )}
-            </div>
+        <Card>
+            <CardHeader>
+                <div className="flex items-center gap-4">
+                    <Button variant="outline" size="icon" onClick={onBackClick} className="h-8 w-8">
+                        <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                    <div>
+                        <CardTitle>Registrar Nueva Devolución</CardTitle>
+                        <CardDescription>Busca una venta por su ID para iniciar el proceso.</CardDescription>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div className="flex items-center gap-2">
+                    <Input
+                        type="number"
+                        placeholder="ID de la venta"
+                        value={saleId}
+                        onChange={e => setSaleId(e.target.value)}
+                        disabled={loading}
+                    />
+                    <Button onClick={fetchSale} disabled={loading || !saleId}>
+                        <Search className="mr-2 h-4 w-4" />
+                        Buscar Venta
+                    </Button>
+                </div>
 
-            {mode === 'list' ? (
-                <>
-                    <div className="filters">
-                        <input
-                            type="number"
-                            placeholder="Filtrar por ID de venta"
-                            value={filterSaleId}
-                            onChange={e => setFilterSaleId(e.target.value)}
-                        />
-                        <button onClick={loadReturns} disabled={listLoading}>
-                            {listLoading ? 'Buscando...' : 'Aplicar filtro'}
-                        </button>
-                    </div>
-                    {listMsg && <p className="msg">{listMsg}</p>}
-                    {returnsList.length > 0 && (
-                        <table>
-                            <thead>
-                            <tr>
-                                <th>ID Devolución</th>
-                                <th>ID Venta</th>
-                                <th>Fecha</th>
-                                <th>Motivo</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {returnsList.map(r => (
-                                <tr key={r.saleReturnId}>
-                                    <td>{r.saleReturnId}</td>
-                                    <td>{r.saleId}</td>
-                                    <td>{new Date(r.returnDate || r.returnedAt!).toLocaleString()}</td>
-                                    <td>{r.reason}</td>
-                                </tr>
-                            ))}
-                            </tbody>
-                        </table>
-                    )}
-                </>
-            ) : (
-                <>
-                    <div className="search-sale">
-                        <input
-                            type="number"
-                            placeholder="ID de venta"
-                            value={saleId}
-                            onChange={e => setSaleId(e.target.value)}
-                        />
-                        <button onClick={fetchSale} disabled={formLoading || !saleId}>
-                            {formLoading ? 'Buscando...' : 'Buscar venta'}
-                        </button>
-                    </div>
-                    {sale && (
-                        <form className="return-form" onSubmit={handleSubmitReturn}>
-                            <h3>Venta #{sale.id} – {new Date(sale.fecha).toLocaleDateString()}</h3>
-                            <table>
-                                <thead>
-                                <tr><th>Producto</th><th>Cant. vendida</th><th>Cant. a devolver</th></tr>
-                                </thead>
-                                <tbody>
-                                {sale.items.map(it => (
-                                    <tr key={it.saleItemId}>
-                                        <td>{it.productId}</td>
-                                        <td>{it.quantity}</td>
-                                        <td>
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                max={it.quantity}
-                                                value={returnQty[it.saleItemId] ?? 0}
-                                                onChange={e => handleQtyChange(it.saleItemId, it.quantity, e.target.value)}
-                                            />
-                                        </td>
-                                    </tr>
-                                ))}
-                                </tbody>
-                            </table>
-                            <div className="reason-field">
-                                <label>Motivo de devolución:</label>
-                                <input
-                                    type="text"
-                                    value={reason}
-                                    onChange={e => setReason(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            {formMsg && <p className="msg">{formMsg}</p>}
-                            <button type="submit" className="btn-submit">Registrar devolución</button>
-                        </form>
-                    )}
-                    {!sale && formMsg && <p className="msg">{formMsg}</p>}
-                </>
-            )}
-        </div>
+                {error && <p className="text-sm text-destructive text-center">{error}</p>}
+
+                {sale && (
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div className="border rounded-md p-4">
+                            <h3 className="font-semibold mb-2">Items de la Venta #{sale.id}</h3>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Producto</TableHead>
+                                        <TableHead className="text-center">Cant. Vendida</TableHead>
+                                        <TableHead className="w-[150px]">Cant. a Devolver</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {sale.items.map(it => (
+                                        <TableRow key={it.saleItemId}>
+                                            <TableCell>{it.productName || `ID: ${it.productId}`}</TableCell>
+                                            <TableCell className="text-center">{it.quantity}</TableCell>
+                                            <TableCell>
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    max={it.quantity}
+                                                    value={returnQty[it.saleItemId] ?? 0}
+                                                    onChange={e => handleQtyChange(it.saleItemId, it.quantity, e.target.value)}
+                                                />
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="reason">Motivo de la Devolución</Label>
+                            <Textarea id="reason" value={reason} onChange={e => setReason(e.target.value)} required />
+                        </div>
+                        <CardFooter className="p-0 pt-4 flex justify-end">
+                            <Button type="submit" disabled={loading}><Undo2 className="mr-2 h-4 w-4" /> Registrar Devolución</Button>
+                        </CardFooter>
+                    </form>
+                )}
+            </CardContent>
+        </Card>
     );
+};
+
+
+// --- Componente principal que gestiona las vistas ---
+export default function ReturnsSection() {
+    const [mode, setMode] = useState<'list' | 'form'>('list');
+
+    if (mode === 'list') {
+        return <ReturnsList onNewReturnClick={() => setMode('form')} />;
+    }
+
+    return <NewReturnForm onBackClick={() => setMode('list')} />;
 }
