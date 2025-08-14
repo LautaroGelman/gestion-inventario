@@ -1,90 +1,131 @@
+// backend/src/main/java/grupo5/gestion_inventario/service/PurchaseOrderService.java
 package grupo5.gestion_inventario.service;
 
 import grupo5.gestion_inventario.clientpanel.dto.PurchaseOrderItemRequest;
 import grupo5.gestion_inventario.clientpanel.dto.PurchaseOrderRequest;
+import grupo5.gestion_inventario.clientpanel.model.*;
 import grupo5.gestion_inventario.model.Product;
-import grupo5.gestion_inventario.clientpanel.model.Provider;
-import grupo5.gestion_inventario.clientpanel.model.PurchaseOrderItem;
-import grupo5.gestion_inventario.clientpanel.model.PurchaseOrder;
-import grupo5.gestion_inventario.model.Client;
-import grupo5.gestion_inventario.repository.ClientRepository;
+import grupo5.gestion_inventario.model.Sucursal;
 import grupo5.gestion_inventario.repository.ProductRepository;
+import grupo5.gestion_inventario.repository.SucursalRepository;
 import grupo5.gestion_inventario.clientpanel.repository.ProviderRepository;
 import grupo5.gestion_inventario.clientpanel.repository.PurchaseOrderRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Date;
-import java.util.List; // AÑADIDO
-import java.util.Optional; // AÑADIDO
+import java.util.List;
+import java.util.Optional;
 
 @Service
 public class PurchaseOrderService {
 
-    @Autowired
-    private PurchaseOrderRepository purchaseOrderRepository;
+    private final PurchaseOrderRepository orderRepo;
+    private final ProductRepository       productRepo;
+    private final ProviderRepository      providerRepo;
+    private final SucursalRepository      sucursalRepo;
 
-    @Autowired
-    private ProductRepository productRepository;
-
-    @Autowired
-    private ProviderRepository providerRepository;
-
-    @Autowired
-    private ClientRepository clientRepository;
-
-    // --- MÉTODO MODIFICADO ---
-    // Devuelve un Optional para que el controlador maneje el caso "no encontrado".
-    public Optional<PurchaseOrder> getPurchaseOrderById(Long id) {
-        return purchaseOrderRepository.findById(id);
+    public PurchaseOrderService(PurchaseOrderRepository orderRepo,
+                                ProductRepository       productRepo,
+                                ProviderRepository      providerRepo,
+                                SucursalRepository      sucursalRepo) {
+        this.orderRepo   = orderRepo;
+        this.productRepo = productRepo;
+        this.providerRepo= providerRepo;
+        this.sucursalRepo= sucursalRepo;
     }
 
-    // --- NUEVO MÉTODO AÑADIDO ---
-    // Para que el controlador pueda listar todas las órdenes de un cliente.
-    public List<PurchaseOrder> findAllByClientId(Long clientId) {
-        return purchaseOrderRepository.findByClientId(clientId);
+    /* ------------------------------------------------------------------
+     *  LECTURA
+     * ------------------------------------------------------------------ */
+    @Transactional(readOnly = true)
+    public Optional<PurchaseOrder> getPurchaseOrderById(Long orderId, Long sucursalId) {
+        confirmarSucursalExiste(sucursalId);
+        return orderRepo.findByIdAndSucursalId(orderId, sucursalId);
     }
 
+    @Transactional(readOnly = true)
+    public List<PurchaseOrder> findAllBySucursalId(Long sucursalId) {
+        confirmarSucursalExiste(sucursalId);
+        return orderRepo.findBySucursalId(sucursalId);
+    }
+
+    /* ------------------------------------------------------------------
+     *  CREAR ORDEN DE COMPRA
+     * ------------------------------------------------------------------ */
     @Transactional
-    public PurchaseOrder createPurchaseOrder(Long clientId, PurchaseOrderRequest request) {
-        Client client = clientRepository.findById(clientId)
-                .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+    public PurchaseOrder create(Long sucursalId, PurchaseOrderRequest req) {
 
-        Provider provider = providerRepository.findById(request.getProviderId())
-                .orElseThrow(() -> new RuntimeException("Proveedor no encontrado"));
+        Sucursal sucursal = sucursalRepo.findById(sucursalId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Sucursal no encontrada: " + sucursalId));
 
-        PurchaseOrder purchaseOrder = new PurchaseOrder();
-        purchaseOrder.setClient(client);
-        purchaseOrder.setProvider(provider);
+        Provider provider = providerRepo.findById(req.getProviderId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Proveedor no encontrado: " + req.getProviderId()));
 
-        for (PurchaseOrderItemRequest itemRequest : request.getItems()) {
-            Product product = productRepository.findById(itemRequest.getProductId())
-                    .orElseThrow(() -> new RuntimeException("Producto no encontrado: " + itemRequest.getProductId()));
-            PurchaseOrderItem item = new PurchaseOrderItem(purchaseOrder, product, itemRequest.getQuantity(), itemRequest.getCost());
-            purchaseOrder.addItem(item);
+        PurchaseOrder order = new PurchaseOrder();
+        order.setClient  (sucursal.getClient());
+        order.setSucursal(sucursal);
+        order.setProvider(provider);
+
+        for (PurchaseOrderItemRequest ir : req.getItems()) {
+            Product product = productRepo.findById(ir.getProductId())
+                    .filter(p -> p.getSucursal().getId().equals(sucursalId))
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Producto no pertenece a esta sucursal: " + ir.getProductId()));
+
+            PurchaseOrderItem item = new PurchaseOrderItem(
+                    order,
+                    product,
+                    ir.getQuantity(),
+                    ir.getCost()
+            );
+            order.addItem(item);
         }
 
-        return purchaseOrderRepository.save(purchaseOrder);
+        return orderRepo.save(order);
     }
 
+    /* ------------------------------------------------------------------
+     *  RECIBIR ORDEN DE COMPRA
+     * ------------------------------------------------------------------ */
     @Transactional
-    public PurchaseOrder receivePurchaseOrder(Long orderId) {
-        PurchaseOrder purchaseOrder = purchaseOrderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Orden de compra no encontrada"));
+    public PurchaseOrder receive(Long orderId, Long sucursalId) {
 
-        if (purchaseOrder.getStatus() != PurchaseOrder.PurchaseOrderStatus.PENDING) {
-            throw new IllegalStateException("Solo se pueden recibir órdenes de compra pendientes.");
+        PurchaseOrder order = orderRepo.findByIdAndSucursalId(orderId, sucursalId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Orden no encontrada o no pertenece a la sucursal"));
+
+        if (order.getStatus() != PurchaseOrder.PurchaseOrderStatus.PENDING) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Solo se pueden recibir órdenes de compra pendientes");
         }
 
-        for (PurchaseOrderItem item : purchaseOrder.getItems()) {
+        /* actualizar stock */
+        for (PurchaseOrderItem item : order.getItems()) {
             Product product = item.getProduct();
-            int newQuantity = product.getQuantity() + item.getQuantity();
-            product.setQuantity(newQuantity);
+            int newQty = product.getQuantity() + item.getQuantity();
+            product.setQuantity(newQty);
         }
 
-        purchaseOrder.setStatus(PurchaseOrder.PurchaseOrderStatus.RECEIVED);
-        purchaseOrder.setReceptionDate(new Date());
-        return purchaseOrderRepository.save(purchaseOrder);
+        order.setStatus       (PurchaseOrder.PurchaseOrderStatus.RECEIVED);
+        order.setReceptionDate(new Date());
+
+        return orderRepo.save(order);
+    }
+
+    /* ------------------------------------------------------------------
+     *  HELPERS
+     * ------------------------------------------------------------------ */
+    private void confirmarSucursalExiste(Long id) {
+        if (!sucursalRepo.existsById(id)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Sucursal no encontrada: " + id);
+        }
     }
 }

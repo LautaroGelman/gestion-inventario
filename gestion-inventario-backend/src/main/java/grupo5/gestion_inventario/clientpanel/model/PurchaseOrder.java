@@ -1,7 +1,13 @@
+// backend/src/main/java/grupo5/gestion_inventario/clientpanel/model/PurchaseOrder.java
 package grupo5.gestion_inventario.clientpanel.model;
 
 import grupo5.gestion_inventario.model.Client;
+import grupo5.gestion_inventario.model.Sucursal;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Date;
@@ -9,6 +15,8 @@ import java.util.List;
 
 @Entity
 @Table(name = "purchase_orders")
+@Getter @Setter
+@NoArgsConstructor
 public class PurchaseOrder {
 
     @Id
@@ -30,6 +38,11 @@ public class PurchaseOrder {
     @JoinColumn(name = "client_id", nullable = false)
     private Client client;
 
+    /* NUEVO: sucursal que hace el pedido */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sucursal_id", nullable = false)
+    private Sucursal sucursal;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PurchaseOrderStatus status;
@@ -38,99 +51,21 @@ public class PurchaseOrder {
     private BigDecimal totalCost;
 
     @OneToMany(mappedBy = "purchaseOrder", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<PurchaseOrderItem> items = new ArrayList<>(); // Inicializado para evitar NullPointerException
+    private List<PurchaseOrderItem> items = new ArrayList<>();
 
-    public enum PurchaseOrderStatus {
-        PENDING,
-        RECEIVED,
-        CANCELLED
-    }
+    public enum PurchaseOrderStatus { PENDING, RECEIVED, CANCELLED }
 
     @PrePersist
     protected void onCreate() {
         this.orderDate = new Date();
-        this.status = PurchaseOrderStatus.PENDING;
-        this.totalCost = BigDecimal.ZERO; // Inicializar el costo total
+        this.status    = PurchaseOrderStatus.PENDING;
+        this.totalCost = BigDecimal.ZERO;
     }
 
-    // Getters y Setters
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Date getOrderDate() {
-        return orderDate;
-    }
-
-    public void setOrderDate(Date orderDate) {
-        this.orderDate = orderDate;
-    }
-
-    public Date getReceptionDate() {
-        return receptionDate;
-    }
-
-    public void setReceptionDate(Date receptionDate) {
-        this.receptionDate = receptionDate;
-    }
-
-    public Provider getProvider() {
-        return provider;
-    }
-
-    public void setProvider(Provider provider) {
-        this.provider = provider;
-    }
-
-    public Client getClient() {
-        return client;
-    }
-
-    public void setClient(Client client) {
-        this.client = client;
-    }
-
-    public PurchaseOrderStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(PurchaseOrderStatus status) {
-        this.status = status;
-    }
-
-    public BigDecimal getTotalCost() {
-        return totalCost;
-    }
-
-    public void setTotalCost(BigDecimal totalCost) {
-        this.totalCost = totalCost;
-    }
-
-    public List<PurchaseOrderItem> getItems() {
-        return items;
-    }
-
-    public void setItems(List<PurchaseOrderItem> items) {
-        this.items = items;
-    }
-
-    // --- MÉTODO HELPER AÑADIDO ---
     public void addItem(PurchaseOrderItem item) {
-        if (this.items == null) {
-            this.items = new ArrayList<>();
-        }
         items.add(item);
-        item.setPurchaseOrder(this); // Mantiene la consistencia de la relación
-        // Recalcula el costo total
-        if (this.totalCost == null) {
-            this.totalCost = BigDecimal.ZERO;
-        }
-        BigDecimal itemCost = item.getCost().multiply(new BigDecimal(item.getQuantity()));
-        this.totalCost = this.totalCost.add(itemCost);
+        item.setPurchaseOrder(this);
+        totalCost = totalCost.add(item.getCost()
+                .multiply(BigDecimal.valueOf(item.getQuantity())));
     }
 }

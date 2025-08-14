@@ -1,4 +1,4 @@
-// src/main/java/grupo5/gestion_inventario/clientpanel/dto/UpdateEmployeeRequest.java
+// backend/src/main/java/grupo5/gestion_inventario/clientpanel/dto/UpdateEmployeeRequest.java
 package grupo5.gestion_inventario.clientpanel.dto;
 
 import grupo5.gestion_inventario.model.EmployeeRole;
@@ -6,11 +6,10 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * Datos que se pueden actualizar de un empleado.
- * Envía sólo los campos que quieras modificar.
+ * Campos opcionales para modificar un empleado.
+ * Envía únicamente los que desees actualizar.
  */
-@Getter
-@Setter
+@Getter @Setter
 public class UpdateEmployeeRequest {
 
     /** Nuevo nombre (opcional). */
@@ -22,5 +21,6 @@ public class UpdateEmployeeRequest {
     /** Nuevo rol (opcional). */
     private EmployeeRole role;
 
-
+    /** Sucursal a la que reasignar al empleado (opcional). */
+    private Long sucursalId;
 }

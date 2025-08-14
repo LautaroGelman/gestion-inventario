@@ -1,13 +1,20 @@
+// backend/src/main/java/grupo5/gestion_inventario/model/Client.java
 package grupo5.gestion_inventario.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
 @Entity
-@Table(name = "client") // Nos aseguramos de que el nombre de la tabla sea "client" en singular.
+@Table(name = "client")
+@Getter @Setter
+@NoArgsConstructor
 public class Client {
 
     @Id
@@ -18,10 +25,10 @@ public class Client {
     private String name;
 
     @Column(nullable = false, unique = true)
-    private String email;                       // Se usará como “username”
+    private String email;                // usado como username
 
     @Column(nullable = false)
-    private String passwordHash;                // Correcto: SIEMPRE BCrypt, no guardamos contraseñas en texto plano.
+    private String passwordHash;
 
     @Column(precision = 5, scale = 2)
     private BigDecimal taxPercentage;
@@ -30,40 +37,23 @@ public class Client {
     private String plan;
     private String estado;
 
-    /* -------- Relaciones -------- */
+    /* --- relaciones --- */
 
-    // La anotación @JsonManagedReference puede ser compleja y propensa a errores.
-    // La reemplazamos con @JsonIgnore para una solución más simple y robusta
-    // que previene bucles infinitos al convertir a JSON.
     @OneToMany(mappedBy = "client", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
-    private List<Product> products;
+    private List<Product> products = new ArrayList<>();
 
     @OneToMany(mappedBy = "client", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnore // Esta ya estaba correcta. La mantenemos por consistencia.
+    @JsonIgnore
     private Set<Employee> employees;
 
-    /* -------- Getters y Setters -------- */
-    // Es crucial que todos los campos tengan sus getters y setters para que JPA y Jackson funcionen bien.
+    @OneToMany(mappedBy = "client", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Sucursal> sucursales = new ArrayList<>();
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
-    public String getPasswordHash() { return passwordHash; }
-    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
-    public BigDecimal getTaxPercentage() { return taxPercentage; }
-    public void setTaxPercentage(BigDecimal taxPercentage) { this.taxPercentage = taxPercentage; }
-    public String getTelefono() { return telefono; }
-    public void setTelefono(String telefono) { this.telefono = telefono; }
-    public String getPlan() { return plan; }
-    public void setPlan(String plan) { this.plan = plan; }
-    public String getEstado() { return estado; }
-    public void setEstado(String estado) { this.estado = estado; }
-    public List<Product> getProducts() { return products; }
-    public void setProducts(List<Product> products) { this.products = products; }
-    public Set<Employee> getEmployees() { return employees; }
-    public void setEmployees(Set<Employee> employees) { this.employees = employees; }
+    /* conveniencia */
+
+    public void addSucursal(Sucursal sucursal) {
+        sucursales.add(sucursal);
+        sucursal.setClient(this);
+    }
 }

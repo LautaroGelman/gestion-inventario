@@ -1,13 +1,15 @@
+// backend/src/main/java/grupo5/gestion_inventario/controller/ExpenseController.java
 package grupo5.gestion_inventario.controller;
 
 import grupo5.gestion_inventario.clientpanel.model.Expense;
+import grupo5.gestion_inventario.model.*;
+import grupo5.gestion_inventario.repository.EmployeeRepository;
+import grupo5.gestion_inventario.repository.SucursalRepository;
 import grupo5.gestion_inventario.service.ExpenseService;
-import grupo5.gestion_inventario.model.Client;
-import grupo5.gestion_inventario.repository.ClientRepository;
-import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -15,49 +17,98 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/clients/{clientId}/expenses")
-@PreAuthorize("hasAnyRole('CLIENT','ADMINISTRADOR','MULTIFUNCION','INVENTARIO','VENTAS_INVENTARIO')")
+@RequestMapping(
+        "/api/client-panel/{clientId}/sucursales/{sucursalId}/expenses")
+@PreAuthorize(
+        "hasAnyRole('PROPIETARIO','ADMINISTRADOR','MULTIFUNCION','INVENTARIO','VENTAS_INVENTARIO')")
 public class ExpenseController {
 
-    private final ExpenseService service;
-    private final ClientRepository clientRepository;
+    private final ExpenseService     expenseService;
+    private final EmployeeRepository employeeRepo;
+    private final SucursalRepository sucursalRepo;
 
-    public ExpenseController(ExpenseService service, ClientRepository clientRepository) {
-        this.service = service;
-        this.clientRepository = clientRepository;
+    public ExpenseController(ExpenseService     expenseService,
+                             EmployeeRepository employeeRepo,
+                             SucursalRepository sucursalRepo) {
+        this.expenseService = expenseService;
+        this.employeeRepo   = employeeRepo;
+        this.sucursalRepo   = sucursalRepo;
     }
 
-    private Client validateClient(Long clientId, Authentication auth) {
-        return clientRepository.findByEmail(auth.getName())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Cliente no encontrado"));
+    /* --------------------------------------------------------
+     *  Helper de validación
+     * -------------------------------------------------------- */
+    private Sucursal validateAccess(Long clientId,
+                                    Long sucursalId,
+                                    Authentication auth) {
+
+        Employee emp = employeeRepo.findByEmail(auth.getName())
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Empleado no encontrado"));
+
+        if (!emp.getClient().getId().equals(clientId)) {
+            throw new AccessDeniedException("Cliente no autorizado");
+        }
+
+        Sucursal sucursal = sucursalRepo.findById(sucursalId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Sucursal no encontrada"));
+
+        if (!sucursal.getClient().getId().equals(clientId)) {
+            throw new AccessDeniedException("La sucursal no pertenece al cliente");
+        }
+
+        boolean esPropietario = emp.getRole() == EmployeeRole.PROPIETARIO;
+
+        if (!esPropietario) {
+            if (emp.getSucursal() == null ||
+                    !emp.getSucursal().getId().equals(sucursalId)) {
+                throw new AccessDeniedException("No autorizado para esta sucursal");
+            }
+        }
+        return sucursal;
     }
 
+    /* --------------------------------------------------------
+     *  Crear gasto / ingreso
+     * -------------------------------------------------------- */
     @PostMapping
     public ResponseEntity<Expense> create(
             @PathVariable Long clientId,
-            @RequestBody Expense expense,
+            @PathVariable Long sucursalId,
+            @RequestBody  Expense expense,
             Authentication auth) {
-        validateClient(clientId, auth);
-        Expense created = service.create(clientId, expense);
-        return ResponseEntity.ok(created);
+
+        Sucursal sucursal = validateAccess(clientId, sucursalId, auth);
+        Expense created   = expenseService.create(sucursal, expense);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
+    /* --------------------------------------------------------
+     *  Listar movimientos contables
+     * -------------------------------------------------------- */
     @GetMapping
     public ResponseEntity<List<Expense>> list(
             @PathVariable Long clientId,
+            @PathVariable Long sucursalId,
             Authentication auth) {
-        validateClient(clientId, auth);
-        List<Expense> expenses = service.findByClientId(clientId);
-        return ResponseEntity.ok(expenses);
+
+        validateAccess(clientId, sucursalId, auth);
+        return ResponseEntity.ok(expenseService.findBySucursalId(sucursalId));
     }
 
+    /* --------------------------------------------------------
+     *  Eliminar movimiento
+     * -------------------------------------------------------- */
     @DeleteMapping("/{expenseId}")
     public ResponseEntity<Void> delete(
             @PathVariable Long clientId,
+            @PathVariable Long sucursalId,
             @PathVariable Long expenseId,
             Authentication auth) {
-        validateClient(clientId, auth);
-        if (service.delete(clientId, expenseId)) {
+
+        validateAccess(clientId, sucursalId, auth);
+        if (expenseService.delete(sucursalId, expenseId)) {
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.notFound().build();

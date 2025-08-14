@@ -1,50 +1,36 @@
-// src/main/java/grupo5/gestion_inventario/service/SalesService.java
+// backend/src/main/java/grupo5/gestion_inventario/service/SalesService.java
 package grupo5.gestion_inventario.service;
 
-import grupo5.gestion_inventario.clientpanel.dto.SaleDto;
-import grupo5.gestion_inventario.clientpanel.dto.SaleItemDto;
-import grupo5.gestion_inventario.clientpanel.dto.SaleItemRequest;
-import grupo5.gestion_inventario.clientpanel.dto.SaleRequest;
-import grupo5.gestion_inventario.clientpanel.dto.SalesByEmployeeDTO;
-import grupo5.gestion_inventario.clientpanel.dto.SalesDailySummaryDto;
-import grupo5.gestion_inventario.clientpanel.dto.ProfitabilitySummaryDto;
+import grupo5.gestion_inventario.clientpanel.dto.*;
 import grupo5.gestion_inventario.clientpanel.model.Sale;
 import grupo5.gestion_inventario.clientpanel.model.SaleItem;
 import grupo5.gestion_inventario.clientpanel.repository.SaleRepository;
-import grupo5.gestion_inventario.model.Client;
-import grupo5.gestion_inventario.model.Employee;
-import grupo5.gestion_inventario.model.Product;
-import grupo5.gestion_inventario.repository.ClientRepository;
-import grupo5.gestion_inventario.repository.EmployeeRepository;
-import grupo5.gestion_inventario.repository.ProductRepository;
+import grupo5.gestion_inventario.model.*;
+import grupo5.gestion_inventario.repository.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.time.*;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 public class SalesService {
 
     private final SaleRepository     saleRepo;
-    private final ClientRepository   clientRepo;
+    private final SucursalRepository sucursalRepo;
     private final ProductRepository  productRepo;
     private final EmployeeRepository employeeRepo;
 
-    public SalesService(SaleRepository saleRepo,
-                        ClientRepository clientRepo,
-                        ProductRepository productRepo,
+    public SalesService(SaleRepository     saleRepo,
+                        SucursalRepository sucursalRepo,
+                        ProductRepository  productRepo,
                         EmployeeRepository employeeRepo) {
         this.saleRepo     = saleRepo;
-        this.clientRepo   = clientRepo;
+        this.sucursalRepo = sucursalRepo;
         this.productRepo  = productRepo;
         this.employeeRepo = employeeRepo;
     }
@@ -53,10 +39,11 @@ public class SalesService {
      *  CREAR VENTA
      * ------------------------------------------------------------------ */
     @Transactional
-    public SaleDto createSale(Long clientId, SaleRequest req) {
-        Client client = clientRepo.findById(clientId)
+    public SaleDto createSale(Long sucursalId, SaleRequest req) {
+
+        Sucursal sucursal = sucursalRepo.findById(sucursalId)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "Cliente no encontrado: " + clientId));
+                        HttpStatus.BAD_REQUEST, "Sucursal no encontrada: " + sucursalId));
 
         Employee employee = null;
         if (req.getEmployeeId() != null) {
@@ -65,113 +52,74 @@ public class SalesService {
                             HttpStatus.BAD_REQUEST, "Empleado no encontrado: " + req.getEmployeeId()));
         }
 
-        Sale sale = new Sale(client, employee, req.getPaymentMethod(), req.getSaleDate());
+        Sale sale = new Sale(
+                sucursal.getClient(),
+                employee,
+                sucursal,
+                req.getPaymentMethod(),
+                req.getSaleDate()
+        );
 
         int totalQty = 0;
         for (SaleItemRequest itemReq : req.getItems()) {
+
             Product product = productRepo.findById(itemReq.getProductId())
+                    .filter(p -> p.getSucursal().getId().equals(sucursalId))
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.BAD_REQUEST,
-                            "Producto no encontrado (ID): " + itemReq.getProductId()));
+                            "Producto no pertenece a esta sucursal: " + itemReq.getProductId()));
 
             int currentStock = product.getQuantity();
             int qtyRequested = itemReq.getQuantity();
-            if (currentStock - qtyRequested < 0) {
+
+            if (currentStock < qtyRequested) {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
                         "Stock insuficiente para " + product.getName() + ": quedan " + currentStock + " unidades");
             }
 
             product.setQuantity(currentStock - qtyRequested);
+
             SaleItem item = new SaleItem(product, qtyRequested, product.getPrice());
             sale.addItem(item);
             totalQty += qtyRequested;
         }
 
         Sale saved = saleRepo.save(sale);
-
-        // Mapear ítems a DTOs
-        List<SaleItemDto> itemDtos = saved.getItems().stream()
-                .map(item -> new SaleItemDto(
-                        item.getId(),
-                        item.getProduct().getId(),
-                        item.getQuantity(),
-                        item.getUnitPrice()
-                ))
-                .collect(Collectors.toList());
-
-        return new SaleDto(
-                saved.getId(),
-                client.getName(),
-                totalQty,
-                saved.getTotalAmount(),
-                saved.getPaymentMethod(),
-                saved.getCreatedAt(),
-                itemDtos
-        );
+        return toDto(saved, totalQty);
     }
 
     /* ------------------------------------------------------------------
      *  LECTURA DE VENTAS
      * ------------------------------------------------------------------ */
     @Transactional(readOnly = true)
-    public List<SaleDto> findByClientId(Long clientId) {
-        if (!clientRepo.existsById(clientId)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Cliente no encontrado: " + clientId);
-        }
-        return saleRepo.findByClientId(clientId).stream()
+    public List<SaleDto> findBySucursalId(Long sucursalId) {
+        confirmarSucursalExiste(sucursalId);
+        return saleRepo.findBySucursalId(sucursalId).stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
 
-    private SaleDto toDto(Sale sale) {
-        int totalQty = sale.getItems().stream()
-                .mapToInt(SaleItem::getQuantity)
-                .sum();
-
-        List<SaleItemDto> itemDtos = sale.getItems().stream()
-                .map(item -> new SaleItemDto(
-                        item.getId(),
-                        item.getProduct().getId(),
-                        item.getQuantity(),
-                        item.getUnitPrice()
-                ))
-                .collect(Collectors.toList());
-
-        return new SaleDto(
-                sale.getId(),
-                sale.getClient().getName(),
-                totalQty,
-                sale.getTotalAmount(),
-                sale.getPaymentMethod(),
-                sale.getCreatedAt(),
-                itemDtos
-        );
-    }
-
     @Transactional(readOnly = true)
-    public long countSalesToday(Long clientId) {
-        if (!clientRepo.existsById(clientId)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Cliente no encontrado: " + clientId);
-        }
+    public long countSalesToday(Long sucursalId) {
+        confirmarSucursalExiste(sucursalId);
         LocalDate today = LocalDate.now();
-        return saleRepo.countBetween(
-                clientId,
+        return saleRepo.countBetweenSucursal(
+                sucursalId,
                 today.atStartOfDay(),
                 today.plusDays(1).atStartOfDay()
         );
     }
 
     @Transactional(readOnly = true)
-    public List<SalesDailySummaryDto> summaryLastDays(Long clientId, int days) {
-        if (!clientRepo.existsById(clientId)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Cliente no encontrado: " + clientId);
-        }
+    public List<SalesDailySummaryDto> summaryLastDays(Long sucursalId, int days) {
+        confirmarSucursalExiste(sucursalId);
         LocalDate start = LocalDate.now().minusDays(days - 1);
-        List<Object[]> raw = saleRepo.findDailySummaryNative(clientId, start.atStartOfDay());
+
+        List<Object[]> raw = saleRepo.findDailySummarySucursalNative(
+                sucursalId,
+                start.atStartOfDay()
+        );
 
         Map<LocalDate, SalesDailySummaryDto> map = raw.stream()
                 .collect(Collectors.toMap(
@@ -186,19 +134,21 @@ public class SalesService {
         List<SalesDailySummaryDto> result = new ArrayList<>();
         for (int i = 0; i < days; i++) {
             LocalDate d = start.plusDays(i);
-            result.add(map.getOrDefault(d, new SalesDailySummaryDto(d, 0, BigDecimal.ZERO)));
+            result.add(map.getOrDefault(d,
+                    new SalesDailySummaryDto(d, 0, BigDecimal.ZERO)));
         }
         return result;
     }
 
     @Transactional(readOnly = true)
-    public List<ProfitabilitySummaryDto> getProfitabilitySummaryLastDays(Long clientId, int days) {
-        if (!clientRepo.existsById(clientId)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Cliente no encontrado: " + clientId);
-        }
+    public List<ProfitabilitySummaryDto> getProfitabilitySummaryLastDays(Long sucursalId, int days) {
+        confirmarSucursalExiste(sucursalId);
         LocalDate start = LocalDate.now().minusDays(days - 1);
-        List<Object[]> raw = saleRepo.findDailyProfitabilitySummaryNative(clientId, start.atStartOfDay());
+
+        List<Object[]> raw = saleRepo.findDailyProfitabilitySummarySucursalNative(
+                sucursalId,
+                start.atStartOfDay()
+        );
 
         Map<LocalDate, ProfitabilitySummaryDto> map = raw.stream()
                 .collect(Collectors.toMap(
@@ -218,7 +168,8 @@ public class SalesService {
         List<ProfitabilitySummaryDto> result = new ArrayList<>();
         for (int i = 0; i < days; i++) {
             LocalDate d = start.plusDays(i);
-            result.add(map.getOrDefault(d, new ProfitabilitySummaryDto(d, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)));
+            result.add(map.getOrDefault(d,
+                    new ProfitabilitySummaryDto(d, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO)));
         }
         return result;
     }
@@ -226,26 +177,61 @@ public class SalesService {
     /* ------------------------------------------------------------------
      *  VENTAS POR EMPLEADO
      * ------------------------------------------------------------------ */
-    public List<SalesByEmployeeDTO> getSalesByEmployee(Long clientId, String startDate, String endDate) {
+    @Transactional(readOnly = true)
+    public List<SalesByEmployeeDTO> getSalesByEmployee(Long sucursalId,
+                                                       String startDate,
+                                                       String endDate) {
+        confirmarSucursalExiste(sucursalId);
         LocalDateTime from = LocalDate.parse(startDate).atStartOfDay();
         LocalDateTime to   = LocalDate.parse(endDate).atTime(LocalTime.MAX);
-        return saleRepo.findSalesByEmployee(clientId, from, to);
+        return saleRepo.findSalesByEmployeeSucursal(sucursalId, from, to);
     }
 
     /* ------------------------------------------------------------------
      *  OBTENER VENTA POR ID (DETALLES)
      * ------------------------------------------------------------------ */
     @Transactional(readOnly = true)
-    public SaleDto findByIdAndClientId(Long clientId, Long saleId) {
-        if (!clientRepo.existsById(clientId)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Cliente no encontrado: " + clientId);
-        }
-        Sale sale = saleRepo.findByIdAndClientId(saleId, clientId)
+    public SaleDto findByIdAndSucursalId(Long sucursalId, Long saleId) {
+        confirmarSucursalExiste(sucursalId);
+        Sale sale = saleRepo.findByIdAndSucursalId(saleId, sucursalId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "Venta no encontrada: clientId=" + clientId + ", saleId=" + saleId
+                        "Venta no encontrada: sucursalId=" + sucursalId + ", saleId=" + saleId
                 ));
         return toDto(sale);
+    }
+
+    /* ------------------------------------------------------------------
+     *  HELPERS
+     * ------------------------------------------------------------------ */
+    private void confirmarSucursalExiste(Long id) {
+        if (!sucursalRepo.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Sucursal no encontrada: " + id);
+        }
+    }
+
+    private SaleDto toDto(Sale sale) {
+        int totalQty = sale.getItems().stream().mapToInt(SaleItem::getQuantity).sum();
+        return toDto(sale, totalQty);
+    }
+
+    private SaleDto toDto(Sale sale, int totalQty) {
+        List<SaleItemDto> itemDtos = sale.getItems().stream()
+                .map(item -> new SaleItemDto(
+                        item.getId(),
+                        item.getProduct().getId(),
+                        item.getQuantity(),
+                        item.getUnitPrice()
+                )).collect(Collectors.toList());
+
+        return new SaleDto(
+                sale.getId(),
+                sale.getClient().getName(),
+                totalQty,
+                sale.getTotalAmount(),
+                sale.getPaymentMethod(),
+                sale.getCreatedAt(),
+                itemDtos
+        );
     }
 }

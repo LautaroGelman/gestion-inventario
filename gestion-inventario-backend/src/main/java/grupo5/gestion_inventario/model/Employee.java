@@ -1,8 +1,12 @@
+// backend/src/main/java/grupo5/gestion_inventario/model/Employee.java
 package grupo5.gestion_inventario.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import grupo5.gestion_inventario.clientpanel.model.HoursWorked; // <-- IMPORTACIÓN AÑADIDA
+import grupo5.gestion_inventario.clientpanel.model.HoursWorked;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -12,6 +16,8 @@ import java.util.List;
 
 @Entity
 @Table(name = "employees")
+@Getter @Setter
+@NoArgsConstructor
 public class Employee implements UserDetails {
 
     @Id
@@ -34,48 +40,29 @@ public class Employee implements UserDetails {
     @JsonIgnore
     private Client client;
 
-    // --- RELACIÓN AÑADIDA ---
+    /* NUEVO: sucursal a la que pertenece (null para PROPIETARIO) */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sucursal_id")
+    @JsonIgnore
+    private Sucursal sucursal;
+
+    /* Horas trabajadas */
     @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
     private List<HoursWorked> hoursWorked;
 
-    public Employee() {}
-
-    public Employee(String name, String email, String passwordHash, EmployeeRole role, Client client) {
-        this.name = name;
-        this.email = email;
+    /* --- constructores --- */
+    public Employee(String name, String email, String passwordHash,
+                    EmployeeRole role, Client client, Sucursal sucursal) {
+        this.name         = name;
+        this.email        = email;
         this.passwordHash = passwordHash;
-        this.role = role;
-        this.client = client;
+        this.role         = role;
+        this.client       = client;
+        this.sucursal     = sucursal;
     }
 
-    // --- Getters y Setters (incluyendo el nuevo) ---
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
-
-    @Override
-    public String getPassword() {
-        return this.passwordHash;
-    }
-    public void setPasswordHash(String passwordHash) {
-        this.passwordHash = passwordHash;
-    }
-
-    public EmployeeRole getRole() { return role; }
-    public void setRole(EmployeeRole role) { this.role = role; }
-    public Client getClient() { return client; }
-    public void setClient(Client client) { this.client = client; }
-
-    // --- GETTER Y SETTER AÑADIDOS ---
-    public List<HoursWorked> getHoursWorked() { return hoursWorked; }
-    public void setHoursWorked(List<HoursWorked> hoursWorked) { this.hoursWorked = hoursWorked; }
-
-
-    // --- Métodos de UserDetails (sin cambios) ---
+    /* --- UserDetails --- */
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         switch (this.role) {
@@ -84,22 +71,22 @@ public class Employee implements UserDetails {
             case INVENTARIO:
                 return List.of(new SimpleGrantedAuthority("ROLE_INVENTARIO"));
             case VENTAS_INVENTARIO:
-                return List.of(new SimpleGrantedAuthority("ROLE_CAJERO"), new SimpleGrantedAuthority("ROLE_INVENTARIO"));
+                return List.of(new SimpleGrantedAuthority("ROLE_CAJERO"),
+                        new SimpleGrantedAuthority("ROLE_INVENTARIO"));
             case MULTIFUNCION:
-                return List.of(new SimpleGrantedAuthority("ROLE_CAJERO"), new SimpleGrantedAuthority("ROLE_INVENTARIO"));
-            default: // ADMINISTRADOR
+                return List.of(new SimpleGrantedAuthority("ROLE_CAJERO"),
+                        new SimpleGrantedAuthority("ROLE_INVENTARIO"));
+            case PROPIETARIO:
+                return List.of(new SimpleGrantedAuthority("ROLE_PROPIETARIO"));
+            default: /* ADMINISTRADOR */
                 return List.of(new SimpleGrantedAuthority("ROLE_ADMINISTRADOR"));
         }
     }
 
-    @Override
-    public String getUsername() { return this.email; }
-    @Override
-    public boolean isAccountNonExpired() { return true; }
-    @Override
-    public boolean isAccountNonLocked() { return true; }
-    @Override
-    public boolean isCredentialsNonExpired() { return true; }
-    @Override
-    public boolean isEnabled() { return true; }
+    @Override public String getUsername()            { return email; }
+    @Override public String getPassword()            { return passwordHash; }
+    @Override public boolean isAccountNonExpired()   { return true; }
+    @Override public boolean isAccountNonLocked()    { return true; }
+    @Override public boolean isCredentialsNonExpired(){ return true; }
+    @Override public boolean isEnabled()             { return true; }
 }

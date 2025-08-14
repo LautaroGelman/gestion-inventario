@@ -26,4 +26,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
             LocalDate from,
             LocalDate to
     );
+
+    List<Expense> findBySucursalId(Long sucursalId);
 }

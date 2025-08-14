@@ -23,4 +23,6 @@ public interface CashRegisterSessionRepository extends JpaRepository<CashRegiste
      * Encuentra una sesión de caja por el ID del empleado y su estado (p. ej., "OPEN").
      */
     Optional<CashRegisterSession> findByEmployeeIdAndStatus(Long employeeId, String status);
+
+    Optional<CashRegisterSession> findByEmployeeIdAndSucursalIdAndStatus(Long id, Long sucursalId, String open);
 }

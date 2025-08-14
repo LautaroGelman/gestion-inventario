@@ -1,8 +1,7 @@
+// backend/src/main/java/grupo5/gestion_inventario/config/JwtUtil.java
 package grupo5.gestion_inventario.config;
 
-import grupo5.gestion_inventario.model.Client;
-import grupo5.gestion_inventario.model.Employee;
-import grupo5.gestion_inventario.model.EmployeeRole;
+import grupo5.gestion_inventario.model.*;
 import grupo5.gestion_inventario.repository.EmployeeRepository;
 import grupo5.gestion_inventario.superpanel.model.AdminUser;
 import io.jsonwebtoken.Claims;
@@ -14,11 +13,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -28,11 +23,15 @@ public class JwtUtil {
     @Value("${jwt.secret}")
     private String secret;
 
-    @Value("${jwt.expiration}")
+    @Value("${jwt.expiration}")            // segundos
     private Long expiration;
 
     @Autowired
-    private EmployeeRepository employeeRepository;
+    private EmployeeRepository employeeRepo;
+
+    /* ============================================================
+     *  EXTRACCIÓN DE CLAIMS
+     * ============================================================ */
 
     public String getUsernameFromToken(String token) {
         return getClaimFromToken(token, Claims::getSubject);
@@ -43,15 +42,18 @@ public class JwtUtil {
     }
 
     public Long extractClientId(String token) {
-        return getClaimFromToken(token, claims -> claims.get("clientId", Long.class));
+        return getClaimFromToken(token, c -> c.get("clientId", Long.class));
     }
 
-    public <T> T getClaimFromToken(String token, Function<Claims, T> claimsResolver) {
-        final Claims claims = getAllClaimsFromToken(token);
-        return claimsResolver.apply(claims);
+    public Long extractSucursalId(String token) {                      // ← NUEVO
+        return getClaimFromToken(token, c -> c.get("sucursalId", Long.class));
     }
 
-    private Claims getAllClaimsFromToken(String token) {
+    public <T> T getClaimFromToken(String token, Function<Claims, T> extractor) {
+        return extractor.apply(getAllClaims(token));
+    }
+
+    private Claims getAllClaims(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(secret)
                 .build()
@@ -59,74 +61,110 @@ public class JwtUtil {
                 .getBody();
     }
 
-    private Boolean isTokenExpired(String token) {
-        final Date expiration = getExpirationDateFromToken(token);
-        return expiration.before(new Date());
+    private boolean isTokenExpired(String token) {
+        return getExpirationDateFromToken(token).before(new Date());
     }
 
-    // --- MÉTODOS PARA GENERAR TOKENS ---
+    /* ============================================================
+     *  GENERACIÓN DE TOKENS
+     * ============================================================ */
 
-    // 1) Token para superadmin
+    /** 1) Token para super-admin del panel global */
     public String generateToken(AdminUser admin) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", admin.getRoles());
+        claims.put("roles",    admin.getRoles());
         claims.put("username", admin.getUsername());
         return createToken(claims, admin.getUsername());
     }
 
-    // 2) Token para empleados (cajeros, multifunción)
-    public String generateToken(Employee employee) {
-        List<String> rolesList = employee.getAuthorities()
-                .stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toList());
-        // Si es administrador, habilitar también como cliente
-        if (rolesList.contains("ROLE_ADMINISTRADOR")) {
-            rolesList.add("ROLE_CLIENT");
-        }
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", rolesList);
-        claims.put("clientId", employee.getClient().getId());
-        claims.put("employeeName", employee.getName());
-        claims.put("employeeId", employee.getId());
-        return createToken(claims, employee.getUsername());
-    }
+    /** 2) Token para empleados (incluye PROPIETARIO) */
+    public String generateToken(Employee emp) {
 
-    // 3) Token para cliente (dueño)
-    public String generateToken(Client client) {
-        // Buscar su empleado ADMINISTRADOR
-        Employee ownerEmp = employeeRepository
-                .findByClientIdAndRole(client.getId(), EmployeeRole.ADMINISTRADOR)
-                .orElseThrow(() -> new RuntimeException("Empleado ADMINISTRADOR no encontrado para el cliente"));
-        // Recopilar roles del empleado y añadir ROLE_CLIENT
-        List<String> rolesList = ownerEmp.getAuthorities()
-                .stream()
+        List<String> roles = emp.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toCollection(ArrayList::new));
-        if (!rolesList.contains("ROLE_CLIENT")) {
-            rolesList.add("ROLE_CLIENT");
+
+        /* El rol ADMINISTRADOR también se expone como ROLE_CLIENT para compatibilidad */
+        if (roles.contains("ROLE_ADMINISTRADOR") && !roles.contains("ROLE_CLIENT")) {
+            roles.add("ROLE_CLIENT");
         }
+
         Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", rolesList);
-        claims.put("clientId", client.getId());
-        claims.put("clientName", client.getName());
-        claims.put("employeeId", ownerEmp.getId());
-        claims.put("employeeName", ownerEmp.getName());
+        claims.put("roles",       roles);
+        claims.put("clientId",    emp.getClient().getId());
+        claims.put("employeeId",  emp.getId());
+        claims.put("employeeName",emp.getName());
+
+        /* Solo los empleados que NO son PROPIETARIO llevan sucursal explícita */
+        if (emp.getRole() != EmployeeRole.PROPIETARIO && emp.getSucursal() != null) {
+            claims.put("sucursalId", emp.getSucursal().getId());
+        }
+
+        return createToken(claims, emp.getUsername());
+    }
+
+    /** 3) Token para cliente dueño (flujo heredado; busca PROPIETARIO) */
+    public String generateToken(Client client) {
+
+        Employee owner = employeeRepo
+                .findByClientIdAndRole(client.getId(), EmployeeRole.PROPIETARIO)
+                .orElseThrow(() ->
+                        new RuntimeException("Empleado PROPIETARIO no encontrado para el cliente"));
+
+        List<String> roles = owner.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        if (!roles.contains("ROLE_CLIENT")) roles.add("ROLE_CLIENT");
+
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("roles",       roles);
+        claims.put("clientId",    client.getId());
+        claims.put("clientName",  client.getName());
+        claims.put("employeeId",  owner.getId());
+        claims.put("employeeName",owner.getName());
+        /* PROPIETARIO → sucursalId = null */
+
         return createToken(claims, client.getEmail());
     }
 
+    /* ============================================================
+     *  FIRMAR Y VALIDAR
+     * ============================================================ */
     private String createToken(Map<String, Object> claims, String subject) {
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(subject)
-                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + expiration * 1000))
                 .signWith(SignatureAlgorithm.HS256, secret)
                 .compact();
     }
 
-    public Boolean validateToken(String token, UserDetails userDetails) {
-        final String username = getUsernameFromToken(token);
-        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+    public boolean validateToken(String token, UserDetails userDetails) {
+        return getUsernameFromToken(token).equals(userDetails.getUsername())
+                && !isTokenExpired(token);
     }
+
+    /* ============================================================
+     *  LEGACY — VERSIÓN ANTERIOR (solo clientId, sin sucursalId)
+     *  Mantén comentada como referencia mientras completes la migración.
+     * ============================================================
+     *
+     * public String generateToken(Employee employee) {
+     *     List<String> rolesList = employee.getAuthorities()
+     *             .stream()
+     *             .map(GrantedAuthority::getAuthority)
+     *             .collect(Collectors.toList());
+     *     if (rolesList.contains("ROLE_ADMINISTRADOR")) rolesList.add("ROLE_CLIENT");
+     *
+     *     Map<String,Object> claims = new HashMap<>();
+     *     claims.put("roles",       rolesList);
+     *     claims.put("clientId",    employee.getClient().getId());
+     *     claims.put("employeeName",employee.getName());
+     *     claims.put("employeeId",  employee.getId());
+     *     return createToken(claims, employee.getUsername());
+     * }
+     *
+     */
 }

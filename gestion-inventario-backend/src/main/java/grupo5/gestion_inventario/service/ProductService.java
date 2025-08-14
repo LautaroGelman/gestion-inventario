@@ -1,11 +1,13 @@
+// backend/src/main/java/grupo5/gestion_inventario/service/ProductService.java
 package grupo5.gestion_inventario.service;
 
 import grupo5.gestion_inventario.clientpanel.dto.ProductDto;
 import grupo5.gestion_inventario.clientpanel.dto.ProductRequest;
-import grupo5.gestion_inventario.model.Product;
 import grupo5.gestion_inventario.model.Client;
+import grupo5.gestion_inventario.model.Product;
+import grupo5.gestion_inventario.model.Sucursal;
 import grupo5.gestion_inventario.repository.ProductRepository;
-import grupo5.gestion_inventario.repository.ClientRepository;
+import grupo5.gestion_inventario.repository.SucursalRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,107 +18,118 @@ import java.util.stream.Collectors;
 @Service
 public class ProductService {
 
-    private final ProductRepository productRepo;
-    private final ClientRepository  clientRepo;
+    private final ProductRepository  productRepo;
+    private final SucursalRepository sucursalRepo;
 
     public ProductService(ProductRepository productRepo,
-                          ClientRepository clientRepo) {
-        this.productRepo = productRepo;
-        this.clientRepo  = clientRepo;
+                          SucursalRepository sucursalRepo) {
+        this.productRepo  = productRepo;
+        this.sucursalRepo = sucursalRepo;
     }
 
+    /* ============================================================
+     *  CREATE
+     * ============================================================ */
     @Transactional
-    public ProductDto create(Client client, ProductRequest req) {
-        Product product = new Product();
-        product.setClient(client);
-        product.setCode(req.getCode());
-        product.setName(req.getName());
-        product.setDescription(req.getDescription());
-        product.setCost(req.getCost());
-        product.setPrice(req.getPrice());
-        product.setQuantity(req.getQuantity());
-        product.setLowStockThreshold(
-                req.getLowStockThreshold() != null ? req.getLowStockThreshold() : 0
-        );
+    public ProductDto create(Sucursal sucursal, ProductRequest req) {
 
-        Product saved = productRepo.save(product);
-        return toDto(saved);
+        Client client = sucursal.getClient();   // para compat. legacy
+        Product p    = new Product();
+
+        p.setClient(client);
+        p.setSucursal(sucursal);
+        p.setCode(req.getCode());
+        p.setName(req.getName());
+        p.setDescription(req.getDescription());
+        p.setCost(req.getCost());
+        p.setPrice(req.getPrice());
+        p.setQuantity(req.getQuantity());
+        p.setLowStockThreshold(
+                req.getLowStockThreshold() != null ? req.getLowStockThreshold() : 0);
+
+        return toDto(productRepo.save(p));
     }
 
+    /* ============================================================
+     *  UPDATE
+     * ============================================================ */
     @Transactional
-    public Optional<ProductDto> updateProduct(Long productId, ProductRequest req, Client client) {
+    public Optional<ProductDto> updateProduct(Long productId,
+                                              ProductRequest req,
+                                              Sucursal sucursal) {
+
         return productRepo.findById(productId)
-                .filter(product -> product.getClient().getId().equals(client.getId()))
-                .map(product -> {
-                    product.setCode(req.getCode());
-                    product.setName(req.getName());
-                    product.setDescription(req.getDescription());
-                    product.setCost(req.getCost());
-                    product.setPrice(req.getPrice());
-                    product.setQuantity(req.getQuantity());
-                    product.setLowStockThreshold(
-                            req.getLowStockThreshold() != null ? req.getLowStockThreshold() : 0
-                    );
-                    Product updated = productRepo.save(product);
-                    return toDto(updated);
+                .filter(p -> p.getSucursal().getId().equals(sucursal.getId()))
+                .map(p -> {
+                    p.setCode(req.getCode());
+                    p.setName(req.getName());
+                    p.setDescription(req.getDescription());
+                    p.setCost(req.getCost());
+                    p.setPrice(req.getPrice());
+                    p.setQuantity(req.getQuantity());
+                    p.setLowStockThreshold(
+                            req.getLowStockThreshold() != null ? req.getLowStockThreshold() : 0);
+                    return toDto(productRepo.save(p));
                 });
     }
 
+    /* ============================================================
+     *  READ
+     * ============================================================ */
     @Transactional(readOnly = true)
-    public List<ProductDto> findByClientId(Long clientId) {
-        if (!clientRepo.existsById(clientId)) {
-            throw new IllegalArgumentException("Cliente no encontrado: " + clientId);
-        }
-        return productRepo.findByClientId(clientId).stream()
+    public List<ProductDto> findBySucursalId(Long sucursalId) {
+        confirmarSucursalExiste(sucursalId);
+        return productRepo.findBySucursalId(sucursalId).stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public List<ProductDto> findDeletedByClient(Long clientId) {
-        if (!clientRepo.existsById(clientId)) {
-            throw new IllegalArgumentException("Cliente no encontrado: " + clientId);
-        }
-        return productRepo.findDeletedByClient(clientId).stream()
-                .map(this::toDto)
-                .collect(Collectors.toList());
-    }
+    public Optional<ProductDto> findDtoByIdAndSucursal(Long productId,
+                                                       Sucursal sucursal) {
 
-    @Transactional(readOnly = true)
-    public Optional<ProductDto> findDtoByIdAndClient(Long productId, Client client) {
         return productRepo.findById(productId)
-                .filter(product -> product.getClient().getId().equals(client.getId()))
+                .filter(p -> p.getSucursal().getId().equals(sucursal.getId()))
                 .map(this::toDto);
     }
 
+    /* ============================================================
+     *  DELETE / RESTORE
+     * ============================================================ */
     @Transactional
-    public boolean deleteProduct(Long productId, Client client) {
+    public boolean deleteProduct(Long productId, Long sucursalId) {
+
         return productRepo.findById(productId)
-                .filter(product -> product.getClient().getId().equals(client.getId()))
-                .map(product -> {
-                    productRepo.delete(product);
-                    return true;
-                })
+                .filter(p -> p.getSucursal().getId().equals(sucursalId))
+                .map(p -> { productRepo.delete(p); return true; })
                 .orElse(false);
     }
 
     @Transactional
-    public boolean restoreProduct(Long productId, Client client) {
+    public boolean restoreProduct(Long productId, Long sucursalId) {
+
         return productRepo.findById(productId)
-                .filter(product -> product.getClient().getId().equals(client.getId()))
-                .map(product -> {
-                    productRepo.restore(client.getId(), productId);
-                    return true;
-                })
+                .filter(p -> p.getSucursal().getId().equals(sucursalId))
+                .map(p -> { productRepo.restore(sucursalId, productId); return true; })
                 .orElse(false);
     }
 
+    /* ============================================================
+     *  MÉTRICAS
+     * ============================================================ */
     @Transactional(readOnly = true)
-    public long countLowStock(Long clientId) {
-        if (!clientRepo.existsById(clientId)) {
-            throw new IllegalArgumentException("Cliente no encontrado: " + clientId);
+    public long countLowStock(Long sucursalId) {
+        confirmarSucursalExiste(sucursalId);
+        return productRepo.countLowStock(sucursalId);
+    }
+
+    /* ============================================================
+     *  HELPERS
+     * ============================================================ */
+    private void confirmarSucursalExiste(Long sucursalId) {
+        if (!sucursalRepo.existsById(sucursalId)) {
+            throw new IllegalArgumentException("Sucursal no encontrada: " + sucursalId);
         }
-        return productRepo.countLowStock(clientId);
     }
 
     private ProductDto toDto(Product p) {

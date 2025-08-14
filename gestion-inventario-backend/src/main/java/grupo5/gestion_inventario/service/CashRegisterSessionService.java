@@ -1,13 +1,16 @@
+// backend/src/main/java/grupo5/gestion_inventario/service/CashRegisterSessionService.java
 package grupo5.gestion_inventario.service;
 
 import grupo5.gestion_inventario.clientpanel.dto.CloseSessionRequest;
 import grupo5.gestion_inventario.clientpanel.dto.OpenSessionRequest;
 import grupo5.gestion_inventario.clientpanel.model.CashRegisterSession;
+import grupo5.gestion_inventario.model.Employee;
+import grupo5.gestion_inventario.model.EmployeeRole;
+import grupo5.gestion_inventario.model.Sucursal;
 import grupo5.gestion_inventario.clientpanel.repository.CashRegisterSessionRepository;
 import grupo5.gestion_inventario.clientpanel.repository.SaleRepository;
-import grupo5.gestion_inventario.model.Employee;
 import grupo5.gestion_inventario.repository.EmployeeRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import grupo5.gestion_inventario.repository.SucursalRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,61 +21,121 @@ import java.util.Optional;
 @Service
 public class CashRegisterSessionService {
 
-    @Autowired
-    private CashRegisterSessionRepository sessionRepository;
-    @Autowired
-    private EmployeeRepository employeeRepository;
-    @Autowired
-    private SaleRepository saleRepository;
+    private final CashRegisterSessionRepository sessionRepo;
+    private final EmployeeRepository            employeeRepo;
+    private final SucursalRepository            sucursalRepo;
+    private final SaleRepository                saleRepo;
 
-    public Optional<CashRegisterSession> getCurrentSession(String employeeEmail) {
-        Employee employee = employeeRepository.findByEmail(employeeEmail)
-                .orElseThrow(() -> new RuntimeException("Empleado no encontrado"));
-        return sessionRepository.findByEmployeeIdAndStatus(employee.getId(), "OPEN");
+    public CashRegisterSessionService(CashRegisterSessionRepository sessionRepo,
+                                      EmployeeRepository            employeeRepo,
+                                      SucursalRepository            sucursalRepo,
+                                      SaleRepository                saleRepo) {
+        this.sessionRepo = sessionRepo;
+        this.employeeRepo= employeeRepo;
+        this.sucursalRepo= sucursalRepo;
+        this.saleRepo    = saleRepo;
     }
 
-    @Transactional
-    public CashRegisterSession openSession(OpenSessionRequest request, String employeeEmail) {
-        Employee employee = employeeRepository.findByEmail(employeeEmail)
-                .orElseThrow(() -> new RuntimeException("Empleado no encontrado"));
+    /* ============================================================
+     *  SESIÓN ACTUAL
+     * ============================================================ */
+    public Optional<CashRegisterSession> getCurrentSession(String employeeEmail,
+                                                           Long   sucursalId) {
 
-        if (getCurrentSession(employeeEmail).isPresent()) {
-            throw new IllegalStateException("El empleado ya tiene una sesión de caja abierta.");
+        Employee emp = validarEmpleado(employeeEmail, sucursalId);
+        return sessionRepo.findByEmployeeIdAndSucursalIdAndStatus(
+                emp.getId(), sucursalId, "OPEN");
+    }
+
+    /* ============================================================
+     *  ABRIR CAJA
+     * ============================================================ */
+    @Transactional
+    public CashRegisterSession openSession(OpenSessionRequest req,
+                                           String            employeeEmail,
+                                           Long              sucursalId) {
+
+        Employee emp = validarEmpleado(employeeEmail, sucursalId);
+
+        if (getCurrentSession(employeeEmail, sucursalId).isPresent()) {
+            throw new IllegalStateException(
+                    "El empleado ya tiene una sesión abierta en esta sucursal");
         }
 
-        CashRegisterSession session = new CashRegisterSession();
-        session.setEmployee(employee);
-        session.setClient(employee.getClient());
-        session.setOpeningTime(LocalDateTime.now());
-        session.setInitialAmount(request.getInitialAmount());
-        session.setStatus("OPEN");
+        Sucursal sucursal = sucursalRepo.findById(sucursalId)
+                .orElseThrow(() -> new IllegalStateException("Sucursal no encontrada"));
 
-        return sessionRepository.save(session);
+        CashRegisterSession session = new CashRegisterSession();
+        session.setEmployee     (emp);
+        session.setClient       (emp.getClient());
+        session.setSucursal     (sucursal);
+        session.setOpeningTime  (LocalDateTime.now());
+        session.setInitialAmount(req.getInitialAmount());
+        session.setStatus       ("OPEN");
+
+        return sessionRepo.save(session);
     }
 
+    /* ============================================================
+     *  CERRAR CAJA
+     * ============================================================ */
     @Transactional
-    public CashRegisterSession closeSession(CloseSessionRequest request, String employeeEmail) {
-        CashRegisterSession session = getCurrentSession(employeeEmail)
-                .orElseThrow(() -> new IllegalStateException("No hay una sesión de caja abierta para este empleado."));
+    public CashRegisterSession closeSession(CloseSessionRequest req,
+                                            String            employeeEmail,
+                                            Long              sucursalId) {
+
+        CashRegisterSession session = getCurrentSession(employeeEmail, sucursalId)
+                .orElseThrow(() ->
+                        new IllegalStateException("No hay sesión abierta para este empleado en la sucursal"));
 
         LocalDateTime closingTime = LocalDateTime.now();
 
-        BigDecimal salesTotal = saleRepository.sumTotalAmountByEmployeeAndDateBetween(
+        /* total de ventas del empleado en esa sucursal y ventana de tiempo */
+        BigDecimal salesTotal = saleRepo.sumTotalAmountByEmployeeAndDateBetween(
                 session.getEmployee().getId(),
+                sucursalId,
                 session.getOpeningTime(),
                 closingTime
         );
 
-        BigDecimal expectedAmount = session.getInitialAmount().add(salesTotal);
-        BigDecimal countedAmount = request.getCountedAmount();
-        BigDecimal difference = countedAmount.subtract(expectedAmount);
+        BigDecimal expected = session.getInitialAmount().add(salesTotal);
+        BigDecimal counted  = req.getCountedAmount();
+        BigDecimal diff     = counted.subtract(expected);
 
-        session.setClosingTime(closingTime);
-        session.setExpectedAmount(expectedAmount);
-        session.setCountedAmount(countedAmount);
-        session.setDifference(difference);
-        session.setStatus("CLOSED");
+        session.setClosingTime   (closingTime);
+        session.setExpectedAmount(expected);
+        session.setCountedAmount (counted);
+        session.setDifference    (diff);
+        session.setStatus        ("CLOSED");
 
-        return sessionRepository.save(session);
+        return sessionRepo.save(session);
     }
+
+    /* ============================================================
+     *  VALIDACIÓN DE EMPLEADO / SUCURSAL
+     * ============================================================ */
+    private Employee validarEmpleado(String email, Long sucursalId) {
+        Employee emp = employeeRepo.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Empleado no encontrado"));
+
+        boolean propietario = emp.getRole() == EmployeeRole.PROPIETARIO;
+
+        if (!propietario) {
+            if (emp.getSucursal() == null ||
+                    !emp.getSucursal().getId().equals(sucursalId)) {
+                throw new IllegalStateException("Empleado no pertenece a la sucursal");
+            }
+        }
+        return emp;
+    }
+
+    /* ============================================================
+     *  LEGACY — VERSIÓN PRE-SUCURSAL (comentada)
+     * ============================================================
+     *
+     * public Optional<CashRegisterSession> getCurrentSession(String email) { … }
+     * public CashRegisterSession openSession(OpenSessionRequest req, String email) { … }
+     * public CashRegisterSession closeSession(CloseSessionRequest req, String email) { … }
+     *
+     */
 }

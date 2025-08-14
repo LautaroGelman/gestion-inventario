@@ -1,3 +1,4 @@
+// backend/src/main/java/grupo5/gestion_inventario/repository/EmployeeRepository.java
 package grupo5.gestion_inventario.repository;
 
 import grupo5.gestion_inventario.model.Employee;
@@ -10,11 +11,25 @@ import java.util.Optional;
 
 @Repository
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
+
+    /* ============================================================
+     *  Búsquedas principales
+     * ============================================================ */
+
     Optional<Employee> findByEmail(String email);
 
     boolean existsByEmail(String email);
 
-    List<Employee> findByClientId(Long clientId);
+    /** Todos los empleados de una sucursal (activos o no) */
+    List<Employee> findBySucursalId(Long sucursalId);
 
+    /** Buscar empleado por cliente + rol (ej.: PROPIETARIO único) */
     Optional<Employee> findByClientIdAndRole(Long clientId, EmployeeRole role);
+
+    /* ============================================================
+     *  LEGACY — métodos basados solo en clientId
+     *  (mantén mientras completes la migración; luego elimínalos)
+     * ============================================================ */
+    //@Deprecated
+    //List<Employee> findByClientId(Long clientId);
 }

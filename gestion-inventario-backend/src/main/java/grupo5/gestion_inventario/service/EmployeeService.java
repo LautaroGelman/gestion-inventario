@@ -1,12 +1,13 @@
+// backend/src/main/java/grupo5/gestion_inventario/service/EmployeeService.java
 package grupo5.gestion_inventario.service;
 
 import grupo5.gestion_inventario.clientpanel.dto.CreateEmployeeRequest;
 import grupo5.gestion_inventario.clientpanel.dto.EmployeeDto;
 import grupo5.gestion_inventario.clientpanel.dto.UpdateEmployeeRequest;
-import grupo5.gestion_inventario.model.Client;
-import grupo5.gestion_inventario.model.Employee;
+import grupo5.gestion_inventario.model.*;
 import grupo5.gestion_inventario.repository.EmployeeRepository;
 import grupo5.gestion_inventario.repository.ClientRepository;
+import grupo5.gestion_inventario.repository.SucursalRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,28 +20,36 @@ public class EmployeeService {
 
     private final EmployeeRepository employeeRepo;
     private final ClientRepository   clientRepo;
+    private final SucursalRepository sucursalRepo;
     private final PasswordEncoder    passwordEncoder;
 
     public EmployeeService(EmployeeRepository employeeRepo,
-                           ClientRepository clientRepo,
-                           PasswordEncoder passwordEncoder) {
+                           ClientRepository   clientRepo,
+                           SucursalRepository sucursalRepo,
+                           PasswordEncoder    passwordEncoder) {
         this.employeeRepo    = employeeRepo;
         this.clientRepo      = clientRepo;
+        this.sucursalRepo    = sucursalRepo;
         this.passwordEncoder = passwordEncoder;
     }
 
-    /* --------- CONSULTAS --------- */
-
-    public List<EmployeeDto> findByClientId(Long clientId) {
-        return employeeRepo.findByClientId(clientId).stream()
+    /* ============================================================
+     *  CONSULTAS
+     * ============================================================ */
+    public List<EmployeeDto> findBySucursalId(Long sucursalId) {
+        return employeeRepo.findBySucursalId(sucursalId).stream()
                 .map(EmployeeDto::fromEntity)
                 .collect(Collectors.toList());
     }
 
-    /* --------- CREAR --------- */
-
+    /* ============================================================
+     *  CREAR EMPLEADO (excepto PROPIETARIO, que se auto-crea)
+     * ============================================================ */
     @Transactional
-    public EmployeeDto create(Long clientId, CreateEmployeeRequest req) {
+    public EmployeeDto create(Long clientId,
+                              Long sucursalId,
+                              CreateEmployeeRequest req) {
+
         if (employeeRepo.existsByEmail(req.getEmail())) {
             throw new RuntimeException("Email ya usado");
         }
@@ -48,57 +57,92 @@ public class EmployeeService {
         Client client = clientRepo.findById(clientId)
                 .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
 
-        String encodedPassword = passwordEncoder.encode(req.getPassword());
+        Sucursal sucursal = sucursalRepo.findById(sucursalId)
+                .orElseThrow(() -> new RuntimeException("Sucursal no encontrada"));
 
-        Employee e = new Employee(
+        if (!sucursal.getClient().getId().equals(clientId)) {
+            throw new RuntimeException("La sucursal no pertenece al cliente");
+        }
+
+        /* PROPIETARIO solo puede existir uno y no se asigna a sucursal */
+        if (req.getRole() == EmployeeRole.PROPIETARIO) {
+            throw new RuntimeException("No puedes crear otro PROPIETARIO");
+        }
+
+        String hash = passwordEncoder.encode(req.getPassword());
+
+        Employee emp = new Employee(
                 req.getName(),
                 req.getEmail(),
-                encodedPassword,
+                hash,
                 req.getRole(),
-                client
+                client,
+                sucursal          // ← asignación de sucursal
         );
 
-        Employee saved = employeeRepo.save(e);
-        return EmployeeDto.fromEntity(saved);
+        return EmployeeDto.fromEntity(employeeRepo.save(emp));
     }
 
-    /* --------- ACTUALIZAR --------- */
-
+    /* ============================================================
+     *  ACTUALIZAR EMPLEADO
+     * ============================================================ */
     @Transactional
-    public EmployeeDto update(Long clientId, Long id, UpdateEmployeeRequest req) {
-        Employee e = employeeRepo.findById(id)
+    public EmployeeDto update(Long clientId,
+                              Long sucursalId,
+                              Long employeeId,
+                              UpdateEmployeeRequest req) {
+
+        Employee emp = employeeRepo.findById(employeeId)
                 .orElseThrow(() -> new RuntimeException("Empleado no encontrado"));
 
-        if (!e.getClient().getId().equals(clientId)) {
+        if (!emp.getClient().getId().equals(clientId)) {
             throw new RuntimeException("No autorizado");
         }
 
-        // Nombre y rol
-        if (req.getName() != null) {
-            e.setName(req.getName());
-        }
-        if (req.getRole() != null) {
-            e.setRole(req.getRole());
-        }
+        if (req.getName() != null) emp.setName(req.getName());
+        if (req.getRole() != null) emp.setRole(req.getRole());
 
-        // Contraseña nueva (texto plano en passwordHash)
         if (req.getPasswordHash() != null && !req.getPasswordHash().isBlank()) {
-            e.setPasswordHash(passwordEncoder.encode(req.getPasswordHash()));
+            emp.setPasswordHash(passwordEncoder.encode(req.getPasswordHash()));
         }
 
-        Employee saved = employeeRepo.save(e);
-        return EmployeeDto.fromEntity(saved);
+        /* Cambio de sucursal (opcional) */
+        if (req.getSucursalId() != null) {
+            Sucursal nueva = sucursalRepo.findById(req.getSucursalId())
+                    .orElseThrow(() -> new RuntimeException("Sucursal no encontrada"));
+            if (!nueva.getClient().getId().equals(clientId)) {
+                throw new RuntimeException("Sucursal no pertenece al cliente");
+            }
+            emp.setSucursal(nueva);
+        }
+
+        return EmployeeDto.fromEntity(employeeRepo.save(emp));
     }
 
-    /* --------- ELIMINAR --------- */
-
+    /* ============================================================
+     *  ELIMINAR EMPLEADO
+     * ============================================================ */
     @Transactional
-    public void delete(Long clientId, Long id) {
-        Employee e = employeeRepo.findById(id)
+    public void delete(Long clientId, Long employeeId) {
+
+        Employee emp = employeeRepo.findById(employeeId)
                 .orElseThrow(() -> new RuntimeException("Empleado no encontrado"));
-        if (!e.getClient().getId().equals(clientId)) {
+
+        if (!emp.getClient().getId().equals(clientId)) {
             throw new RuntimeException("No autorizado");
         }
-        employeeRepo.delete(e);
+        if (emp.getRole() == EmployeeRole.PROPIETARIO) {
+            throw new RuntimeException("No puedes eliminar al PROPIETARIO");
+        }
+        employeeRepo.delete(emp);
     }
+
+    /* ============================================================
+     *  LEGACY (pre-sucursal) — mantenido como comentario
+     * ============================================================
+     * public List<EmployeeDto> findByClientId(Long clientId) { … }
+     * public EmployeeDto create(Long clientId, CreateEmployeeRequest req) { … }
+     * public EmployeeDto update(Long clientId, Long id, UpdateEmployeeRequest req) { … }
+     * public void delete(Long clientId, Long id) { … }
+     */
 }

@@ -1,8 +1,10 @@
+// backend/src/main/java/grupo5/gestion_inventario/model/EmployeeRole.java
 package grupo5.gestion_inventario.model;
 
 import org.springframework.security.core.GrantedAuthority;
 
 public enum EmployeeRole implements GrantedAuthority {
+    PROPIETARIO,
     ADMINISTRADOR,
     CAJERO,
     INVENTARIO,

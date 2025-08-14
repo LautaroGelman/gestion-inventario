@@ -1,61 +1,72 @@
-// src/main/java/grupo5/gestion_inventario/service/ExpenseService.java
+// backend/src/main/java/grupo5/gestion_inventario/service/ExpenseService.java
 package grupo5.gestion_inventario.service;
 
-import java.util.List;
-
+import grupo5.gestion_inventario.clientpanel.model.Expense;
+import grupo5.gestion_inventario.model.Sucursal;
+import grupo5.gestion_inventario.repository.SucursalRepository;
+import grupo5.gestion_inventario.clientpanel.repository.ExpenseRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
-import grupo5.gestion_inventario.model.Client;
-import grupo5.gestion_inventario.repository.ClientRepository;
-import grupo5.gestion_inventario.clientpanel.model.Expense;
-import grupo5.gestion_inventario.clientpanel.repository.ExpenseRepository;
+import java.util.List;
 
 @Service
 public class ExpenseService {
 
-    private final ExpenseRepository expenseRepo;
-    private final ClientRepository  clientRepo;
+    private final ExpenseRepository  expenseRepo;
+    private final SucursalRepository sucursalRepo;
 
-    public ExpenseService(ExpenseRepository expenseRepo,
-                          ClientRepository clientRepo) {
-        this.expenseRepo = expenseRepo;
-        this.clientRepo  = clientRepo;
+    public ExpenseService(ExpenseRepository  expenseRepo,
+                          SucursalRepository sucursalRepo) {
+        this.expenseRepo  = expenseRepo;
+        this.sucursalRepo = sucursalRepo;
     }
 
-    /**
-     * Crea un gasto para un cliente.
-     */
+    /* ============================================================
+     *  CREAR MOVIMIENTO CONTABLE
+     * ============================================================ */
     @Transactional
-    public Expense create(Long clientId, Expense expense) {
-        Client client = clientRepo.findById(clientId)
-                .orElseThrow(() -> new IllegalArgumentException("Cliente no encontrado: " + clientId));
-        expense.setClient(client);
+    public Expense create(Sucursal sucursal, Expense expense) {
+        /* El controlador ya valida cliente-sucursal-empleado.
+           Aquí solo vinculamos la entidad y persistimos. */
+        expense.setClient  (sucursal.getClient());
+        expense.setSucursal(sucursal);
         return expenseRepo.save(expense);
     }
 
-    /**
-     * Lista gastos de un cliente.
-     */
+    /* ============================================================
+     *  LISTAR POR SUCURSAL
+     * ============================================================ */
     @Transactional(readOnly = true)
-    public List<Expense> findByClientId(Long clientId) {
-        if (!clientRepo.existsById(clientId)) {
-            throw new IllegalArgumentException("Cliente no encontrado: " + clientId);
+    public List<Expense> findBySucursalId(Long sucursalId) {
+        if (!sucursalRepo.existsById(sucursalId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND, "Sucursal no encontrada: " + sucursalId);
         }
-        return expenseRepo.findByClientId(clientId);
+        return expenseRepo.findBySucursalId(sucursalId);
     }
 
-    /**
-     * Elimina un gasto por su id.
-     * @return true si existía y se borró.
-     */
+    /* ============================================================
+     *  ELIMINAR MOVIMIENTO
+     * ============================================================ */
     @Transactional
-    public boolean delete(Long clientId, Long expenseId) {
+    public boolean delete(Long sucursalId, Long expenseId) {
+
         return expenseRepo.findById(expenseId)
-                .filter(e -> e.getClient().getId().equals(clientId))
-                .map(e -> {
-                    expenseRepo.delete(e);
-                    return true;
-                }).orElse(false);
+                .filter(e -> e.getSucursal().getId().equals(sucursalId))
+                .map(e -> { expenseRepo.delete(e); return true; })
+                .orElse(false);
     }
+
+    /* ============================================================
+     *  LEGACY (pre-sucursal) – comentado para referencia
+     * ============================================================
+     *
+     * public Expense create(Long clientId, Expense exp) { … }
+     * public List<Expense> findByClientId(Long clientId) { … }
+     * public boolean delete(Long clientId, Long expenseId) { … }
+     *
+     */
 }

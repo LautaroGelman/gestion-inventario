@@ -1,3 +1,4 @@
+// backend/src/main/java/grupo5/gestion_inventario/model/Product.java
 package grupo5.gestion_inventario.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -12,13 +13,12 @@ import java.math.BigDecimal;
 
 @Entity
 @Table(name = "product")
-@Getter
-@Setter
-@AllArgsConstructor
+@Getter @Setter
+@NoArgsConstructor @AllArgsConstructor
 @SQLDelete(sql = "UPDATE product SET active = FALSE WHERE id = ?")
+@Where(clause = "active = TRUE")
 public class Product {
 
-    // --- Getters & Setters ---
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -48,22 +48,27 @@ public class Product {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id", nullable = false)
+    @JsonIgnore        // se mantendrá mientras migremos lógica que aún usa clientId
     private Client client;
 
-    // --- Constructores ---
-    public Product() {}
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sucursal_id", nullable = false)
+    @JsonIgnore
+    private Sucursal sucursal;
 
-    public Product(String code, String name, String description, BigDecimal cost,
-                   BigDecimal price, int quantity, int lowStockThreshold, Client client) {
-        this.code = code;
-        this.name = name;
-        this.description = description;
-        this.cost = cost;
-        this.price = price;
-        this.quantity = quantity;
+    public Product(String code, String name, String description,
+                   BigDecimal cost, BigDecimal price, int quantity,
+                   int lowStockThreshold, Client client, Sucursal sucursal) {
+
+        this.code              = code;
+        this.name              = name;
+        this.description       = description;
+        this.cost              = cost;
+        this.price             = price;
+        this.quantity          = quantity;
         this.lowStockThreshold = lowStockThreshold;
-        this.client = client;
-        this.active = true;
+        this.client            = client;
+        this.sucursal          = sucursal;
+        this.active            = true;
     }
-
 }
