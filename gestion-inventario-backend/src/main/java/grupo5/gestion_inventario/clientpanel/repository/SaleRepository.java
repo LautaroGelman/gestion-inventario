@@ -21,6 +21,13 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
 
     Optional<Sale> findByIdAndSucursalId(Long id, Long sucursalId);
 
+    // Ventas de un cliente en un intervalo de fechas (usando createdAt)
+    List<Sale> findBySucursalClientIdAndCreatedAtBetween(
+            Long clientId,
+            LocalDateTime start,
+            LocalDateTime end
+    );
+
     List<Sale> findBySucursalId(Long sucursalId);
 
     @Query("""
@@ -90,67 +97,13 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
                                                       @Param("startDate")  LocalDateTime startDate,
                                                       @Param("endDate")    LocalDateTime endDate);
 
-    /* ------------------------------------------------------------------
-     *  MÉTODOS LEGACY (basados en clientId) — ELIMÍNALOS CUANDO MIGRES TODO
-     * ------------------------------------------------------------------ */
-
-    @Deprecated Optional<Sale> findByIdAndClientId(Long id, Long clientId);
-    @Deprecated List<Sale> findByClientId(Long clientId);
-    @Deprecated List<Sale> findByClient(Client client);
-
+    /** Ingresos globales (todas las ventas) desde una fecha dada */
     @Query("""
-        SELECT COUNT(s) FROM Sale s
-        WHERE s.client.id  = :clientId
-          AND s.createdAt  >= :from
-          AND s.createdAt  <  :to
+        SELECT COALESCE(SUM(s.totalAmount), 0)
+          FROM Sale s
+         WHERE s.createdAt >= :since
     """)
-    @Deprecated
-    long countBetween(@Param("clientId") Long clientId,
-                      @Param("from")     LocalDateTime from,
-                      @Param("to")       LocalDateTime to);
-
-    @Query(value = """
-        SELECT DATE(created_at) AS fecha,
-               COUNT(*)         AS ventas,
-               COALESCE(SUM(total_amount),0) AS importe
-        FROM sale
-        WHERE client_id = :clientId
-          AND created_at >= :startDate
-        GROUP BY fecha
-        ORDER BY fecha
-    """, nativeQuery = true)
-    @Deprecated
-    List<Object[]> findDailySummaryNative(@Param("clientId") Long clientId,
-                                          @Param("startDate") LocalDateTime startDate);
-
-    @Query(value = """
-        SELECT DATE(s.created_at)                     AS sale_date,
-               COALESCE(SUM(s.total_amount), 0)       AS total_revenue,
-               COALESCE(SUM(si.quantity * p.cost), 0) AS total_cost_of_goods
-        FROM sale s
-          JOIN sale_item si ON s.id = si.sale_id
-          JOIN product    p ON si.product_id = p.id
-        WHERE s.client_id = :clientId
-          AND s.created_at >= :startDate
-        GROUP BY sale_date
-        ORDER BY sale_date
-    """, nativeQuery = true)
-    @Deprecated
-    List<Object[]> findDailyProfitabilitySummaryNative(@Param("clientId") Long clientId,
-                                                       @Param("startDate") LocalDateTime startDate);
-
-    @Query("""
-        SELECT new grupo5.gestion_inventario.clientpanel.dto.SalesByEmployeeDTO(
-                   e.id, e.name, SUM(s.totalAmount), COUNT(s))
-        FROM Sale s
-          JOIN s.employee e
-        WHERE s.client.id = :clientId
-          AND s.createdAt BETWEEN :startDate AND :endDate
-        GROUP BY e.id, e.name
-        ORDER BY SUM(s.totalAmount) DESC
-    """)
-    @Deprecated
-    List<SalesByEmployeeDTO> findSalesByEmployee(@Param("clientId")  Long clientId,
-                                                 @Param("startDate") LocalDateTime startDate,
-                                                 @Param("endDate")   LocalDateTime endDate);
+    BigDecimal totalRevenueSince(@Param("since") LocalDateTime since);
+    
 }
+

@@ -26,9 +26,21 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+/**
+ * Servicio de reportes financieros a nivel CLIENTE.
+ *
+ * Notas de diseño:
+ * - Multi-sucursal: todas las consultas derivan por relación {@code sucursal -> client}
+ *   (p.ej., {@code findBySucursalClientId(...)}) para mantener coherencia con el modelo actual.
+ * - No se usan métodos de repositorios deprecados.
+ * - No se cambia ninguna firma pública; se agregan utilidades privadas para mejorar legibilidad.
+ */
 @Service
 public class ReportesFinancierosService {
 
+    /* -------------------------------------------------------------------------
+     *  Repositorios (inyección por constructor)
+     * ------------------------------------------------------------------------- */
     private final SaleRepository saleRepository;
     private final ExpenseRepository expenseRepository;
     private final ProductRepository productRepository;
@@ -50,81 +62,109 @@ public class ReportesFinancierosService {
         this.salaryRateRepository = salaryRateRepository;
     }
 
-    /**
-     * Calcula el estado de resultados (Pérdidas y Ganancias) para un período.
-     */
+    /* =========================================================================
+     *  1) ESTADO DE RESULTADOS (Pérdidas y Ganancias)
+     * =========================================================================
+     * - Ingresos por ventas = sum(totalAmount) en el rango [from..to]
+     * - CMV = sum(cost * qty) de los items vendidos en el rango
+     * - Gastos operativos = sum(expenses) (en DB vienen negativos → se invierten para mostrar)
+     * - Utilidad operativa = margen bruto + gastos (recordar que gastos son negativos)
+     * ========================================================================= */
     @Transactional(readOnly = true)
     public EstadoResultadosDTO calcularEstadoResultados(Long clientId, LocalDate from, LocalDate to) {
-        LocalDateTime start = from.atStartOfDay();
-        LocalDateTime end = to.atTime(23, 59, 59, 999999999);
+        LocalDateTime start = startOfDay(from);
+        LocalDateTime end   = endOfDay(to);
 
-        // 1. Ingresos por ventas
-        List<Sale> sales = saleRepository.findByClientId(clientId).stream()
-                .filter(s -> !s.getCreatedAt().isBefore(start) && !s.getCreatedAt().isAfter(end))
-                .collect(Collectors.toList());
+        // 1) Ventas del cliente en el período
+        List<Sale> sales = saleRepository
+                .findBySucursalClientIdAndCreatedAtBetween(clientId, start, end);
+
+        // Ingresos por ventas
         BigDecimal ingresosPorVentas = sales.stream()
                 .map(Sale::getTotalAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // 2. Costo de mercadería vendida (CMV)
+        // 2) CMV: costo unitario * cantidad por cada item vendido
         BigDecimal costoMercaderiaVendida = sales.stream()
                 .flatMap(s -> s.getItems().stream())
-                .map(item -> item.getProduct().getCost().multiply(new BigDecimal(item.getQuantity())))
+                .map(item -> safe(item.getProduct().getCost())
+                        .multiply(BigDecimal.valueOf(item.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal margenBruto = ingresosPorVentas.subtract(costoMercaderiaVendida);
 
-        // 3. Gastos operativos (son negativos en la DB)
-        List<Expense> expenses = expenseRepository.findByClientIdAndDateBetweenOrderByDateAsc(clientId, from, to);
-        Map<String, BigDecimal> detalleGastos = expenses.stream()
+        // 3) Gastos operativos por categoría (DB guarda montos negativos para egresos)
+        List<Expense> expenses = expenseRepository
+                .findByClientIdAndDateBetweenOrderByDateAsc(clientId, from, to);
+
+        Map<String, BigDecimal> gastosPorCategoria = expenses.stream()
                 .collect(Collectors.groupingBy(
                         e -> e.getCategory().getName(),
                         Collectors.reducing(BigDecimal.ZERO, Expense::getAmount, BigDecimal::add)
                 ));
 
-        BigDecimal gastosOperativos = detalleGastos.values().stream()
+        BigDecimal gastosOperativos = gastosPorCategoria.values().stream()
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal utilidadOperativa = margenBruto.add(gastosOperativos);
 
+        // 4) DTO resultado
         EstadoResultadosDTO dto = new EstadoResultadosDTO();
         dto.setIngresosPorVentas(ingresosPorVentas);
         dto.setCostoMercaderiaVendida(costoMercaderiaVendida);
         dto.setMargenBruto(margenBruto);
-        dto.setGastosOperativos(gastosOperativos.negate()); // Se muestra como positivo
+        dto.setGastosOperativos(gastosOperativos.negate()); // Mostrar como positivo
         dto.setUtilidadOperativa(utilidadOperativa);
-        dto.setDetalleGastos(detalleGastos.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().negate())));
-
+        dto.setDetalleGastos(
+                gastosPorCategoria.entrySet().stream()
+                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().negate()))
+        );
         return dto;
     }
 
-    /**
-     * Calcula las métricas de nómina para un período.
-     */
+    /* =========================================================================
+     *  2) NÓMINA
+     * =========================================================================
+     * - Recorre empleados del cliente y horas trabajadas en el período.
+     * - Aplica la tarifa efectiva (SalaryRate) por mes (búsqueda por fecha).
+     * - Calcula:
+     *    * costoTotalNomina = sum(horas * tarifa)
+     *    * totalHoras
+     *    * costoPromedioPorHora
+     *    * costoLaboralSobreIngresos = costoTotalNomina / ingresosDesdeFrom * 100
+     * ========================================================================= */
     @Transactional(readOnly = true)
     public NominaDTO calcularMetricasNomina(Long clientId, LocalDate from, LocalDate to) {
         Client client = clientRepository.findById(clientId).orElseThrow();
         NominaDTO dto = new NominaDTO();
 
         BigDecimal costoTotalNomina = BigDecimal.ZERO;
-        BigDecimal totalHoras = BigDecimal.ZERO;
+        BigDecimal totalHoras       = BigDecimal.ZERO;
 
+        // Empleados del cliente (no se filtra por sucursal; es un agregado a nivel cliente)
         for (Employee emp : client.getEmployees()) {
-            List<HoursWorked> hoursList = emp.getHoursWorked().stream()
-                    .filter(hw -> {
-                        LocalDate hwDate = LocalDate.of(hw.getYear(), hw.getMonth(), 1);
-                        return !hwDate.isBefore(from.withDayOfMonth(1)) && !hwDate.isAfter(to.withDayOfMonth(1));
-                    }).collect(Collectors.toList());
 
-            for(HoursWorked hw : hoursList) {
-                totalHoras = totalHoras.add(hw.getHours());
+            // Horas del empleado en el período (comparamos por Year/Month)
+            List<HoursWorked> horasPeriodo = emp.getHoursWorked().stream()
+                    .filter(hw -> {
+                        LocalDate hwMonth = LocalDate.of(hw.getYear(), hw.getMonth(), 1);
+                        return !hwMonth.isBefore(from.withDayOfMonth(1)) &&
+                                !hwMonth.isAfter(to.withDayOfMonth(1));
+                    })
+                    .collect(Collectors.toList());
+
+            for (HoursWorked hw : horasPeriodo) {
+                totalHoras = totalHoras.add(safe(hw.getHours()));
+
+                // Tarifa efectiva para el mes (se busca hacia fin de mes para asegurar vigencia)
+                LocalDate rateDate = LocalDate.of(hw.getYear(), hw.getMonth(), 1).withDayOfMonth(28);
                 SalaryRate rate = salaryRateRepository
-                        .findTopByEmployeeIdAndDate(emp.getId(), LocalDate.of(hw.getYear(), hw.getMonth(), 1).withDayOfMonth(28))
+                        .findTopByEmployeeIdAndDate(emp.getId(), rateDate)
                         .orElse(null);
 
-                if(rate != null) {
-                    costoTotalNomina = costoTotalNomina.add(hw.getHours().multiply(rate.getHourlyRate()));
+                if (rate != null) {
+                    BigDecimal costo = safe(hw.getHours()).multiply(safe(rate.getHourlyRate()));
+                    costoTotalNomina = costoTotalNomina.add(costo);
                 }
             }
         }
@@ -132,87 +172,116 @@ public class ReportesFinancierosService {
         dto.setCostoTotalNomina(costoTotalNomina);
         dto.setTotalHorasTrabajadas(totalHoras);
 
-        if (totalHoras.compareTo(BigDecimal.ZERO) > 0) {
-            dto.setCostoPromedioPorHora(costoTotalNomina.divide(totalHoras, 2, RoundingMode.HALF_UP));
-        } else {
-            dto.setCostoPromedioPorHora(BigDecimal.ZERO);
-        }
+        // Costo promedio por hora
+        dto.setCostoPromedioPorHora(
+                totalHoras.compareTo(BigDecimal.ZERO) > 0
+                        ? costoTotalNomina.divide(totalHoras, 2, RoundingMode.HALF_UP)
+                        : BigDecimal.ZERO
+        );
 
-        BigDecimal ingresos = saleRepository.totalRevenueSinceClient(clientId, from.atStartOfDay());
-        if(ingresos.compareTo(BigDecimal.ZERO) > 0){
-            double ratio = costoTotalNomina.divide(ingresos, 4, RoundingMode.HALF_UP).doubleValue() * 100;
-            dto.setCostoLaboralSobreIngresos(ratio);
-        } else {
-            dto.setCostoLaboralSobreIngresos(0);
-        }
+        // Ingresos desde "from" hasta ahora (ventas a nivel cliente)
+        BigDecimal ingresos = saleRepository
+                .findBySucursalClientIdAndCreatedAtBetween(clientId, startOfDay(from), LocalDateTime.now())
+                .stream()
+                .map(Sale::getTotalAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // Costo laboral sobre ingresos (en %)
+        dto.setCostoLaboralSobreIngresos(
+                ingresos.compareTo(BigDecimal.ZERO) > 0
+                        ? costoTotalNomina.divide(ingresos, 4, RoundingMode.HALF_UP).doubleValue() * 100
+                        : 0d
+        );
 
         return dto;
     }
 
-    /**
-     * Calcula el flujo de caja para un período.
-     */
+    /* =========================================================================
+     *  3) FLUJO DE CAJA
+     * =========================================================================
+     * - Entradas = sum(ventas en período)
+     * - Salidas  = sum(abs(gastos negativos) en período)
+     * - Movimientos: combina ventas + gastos para una vista cronológica
+     * ========================================================================= */
     @Transactional(readOnly = true)
     public FlujoCajaDTO calcularFlujoCaja(Long clientId, LocalDate from, LocalDate to) {
         FlujoCajaDTO dto = new FlujoCajaDTO();
-        // NOTA: Saldo inicial requeriría una lógica más compleja (ej. cierre de caja anterior).
-        // Por ahora, lo simplificamos a 0.
+
+        // Saldo inicial simplificado (0). Un cierre de caja real requeriría lógica adicional.
         dto.setSaldoInicial(BigDecimal.ZERO);
 
-        List<Expense> expenses = expenseRepository.findByClientIdAndDateBetweenOrderByDateAsc(clientId, from, to);
-        List<Sale> sales = saleRepository.findByClientId(clientId).stream()
-                .filter(s -> !s.getCreatedAt().toLocalDate().isBefore(from) && !s.getCreatedAt().toLocalDate().isAfter(to))
-                .collect(Collectors.toList());
+        // Gastos del período
+        List<Expense> expenses = expenseRepository
+                .findByClientIdAndDateBetweenOrderByDateAsc(clientId, from, to);
 
-        BigDecimal entradas = sales.stream().map(Sale::getTotalAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        // Ventas del período (sin deprecados)
+        List<Sale> sales = saleRepository
+                .findBySucursalClientIdAndCreatedAtBetween(
+                        clientId, startOfDay(from), endOfDay(to)
+                );
+
+        // Entradas (ventas)
+        BigDecimal entradas = sales.stream()
+                .map(Sale::getTotalAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // Salidas (egresos; en DB negativos → tomamos valor absoluto total)
         BigDecimal salidas = expenses.stream()
                 .filter(e -> e.getAmount().compareTo(BigDecimal.ZERO) < 0)
-                .map(Expense::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add).negate();
+                .map(Expense::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .negate();
 
         dto.setEntradas(entradas);
         dto.setSalidas(salidas);
         dto.setSaldoFinal(entradas.subtract(salidas));
 
-        // Combinar movimientos
+        // Movimientos combinados (ordenados desc por fecha)
         Stream<FlujoCajaDTO.MovimientoCajaDTO> movVentas = sales.stream().map(s -> {
-            FlujoCajaDTO.MovimientoCajaDTO mov = new FlujoCajaDTO.MovimientoCajaDTO();
-            mov.setFecha(s.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE));
-            mov.setDescripcion("Venta #" + s.getId());
-            mov.setCategoria("Ventas");
-            mov.setMonto(s.getTotalAmount());
-            return mov;
+            FlujoCajaDTO.MovimientoCajaDTO m = new FlujoCajaDTO.MovimientoCajaDTO();
+            m.setFecha(s.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE));
+            m.setDescripcion("Venta #" + s.getId());
+            m.setCategoria("Ventas");
+            m.setMonto(s.getTotalAmount());
+            return m;
         });
 
         Stream<FlujoCajaDTO.MovimientoCajaDTO> movGastos = expenses.stream().map(e -> {
-            FlujoCajaDTO.MovimientoCajaDTO mov = new FlujoCajaDTO.MovimientoCajaDTO();
-            mov.setFecha(e.getDate().format(DateTimeFormatter.ISO_LOCAL_DATE));
-            mov.setDescripcion(e.getDescription());
-            mov.setCategoria(e.getCategory().getName());
-            mov.setMonto(e.getAmount());
-            return mov;
+            FlujoCajaDTO.MovimientoCajaDTO m = new FlujoCajaDTO.MovimientoCajaDTO();
+            m.setFecha(e.getDate().format(DateTimeFormatter.ISO_LOCAL_DATE));
+            m.setDescripcion(e.getDescription());
+            m.setCategoria(e.getCategory().getName());
+            m.setMonto(e.getAmount());
+            return m;
         });
 
-        List<FlujoCajaDTO.MovimientoCajaDTO> todosLosMovimientos = Stream.concat(movVentas, movGastos)
+        List<FlujoCajaDTO.MovimientoCajaDTO> movimientos = Stream.concat(movVentas, movGastos)
                 .sorted(Comparator.comparing(FlujoCajaDTO.MovimientoCajaDTO::getFecha).reversed())
                 .collect(Collectors.toList());
 
-        dto.setMovimientos(todosLosMovimientos);
-
+        dto.setMovimientos(movimientos);
         return dto;
     }
 
-    /**
-     * Agrupa los gastos por categoría.
-     */
+    /* =========================================================================
+     *  4) ANÁLISIS DE GASTOS POR CATEGORÍA
+     * =========================================================================
+     * - Devuelve (categoría, monto, % respecto al total de gastos del período)
+     * ========================================================================= */
     @Transactional(readOnly = true)
     public List<AnalisisGastosDTO> analizarGastos(Long clientId, LocalDate from, LocalDate to) {
-        List<Expense> expenses = expenseRepository.findByClientIdAndDateBetweenOrderByDateAsc(clientId, from, to);
+        List<Expense> expenses = expenseRepository
+                .findByClientIdAndDateBetweenOrderByDateAsc(clientId, from, to);
 
         BigDecimal totalGastos = expenses.stream()
                 .filter(e -> e.getAmount().compareTo(BigDecimal.ZERO) < 0)
-                .map(Expense::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add).negate();
+                .map(Expense::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .negate();
 
-        if (totalGastos.compareTo(BigDecimal.ZERO) == 0) return Collections.emptyList();
+        if (totalGastos.compareTo(BigDecimal.ZERO) == 0) {
+            return Collections.emptyList();
+        }
 
         return expenses.stream()
                 .collect(Collectors.groupingBy(
@@ -222,31 +291,37 @@ public class ReportesFinancierosService {
                 .entrySet().stream()
                 .map(entry -> new AnalisisGastosDTO(
                         entry.getKey(),
-                        entry.getValue().negate(),
-                        entry.getValue().negate().divide(totalGastos, 4, RoundingMode.HALF_UP).doubleValue() * 100
+                        entry.getValue().negate(), // mostrar positivo
+                        entry.getValue().negate()
+                                .divide(totalGastos, 4, RoundingMode.HALF_UP)
+                                .doubleValue() * 100
                 ))
                 .sorted(Comparator.comparing(AnalisisGastosDTO::getMonto).reversed())
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Calcula el valor total del inventario actual y un top 5 de productos.
-     */
+    /* =========================================================================
+     *  5) VALOR DE INVENTARIO
+     * =========================================================================
+     * - Suma (costo * cantidad) de todos los productos del cliente.
+     * - Top 5 de productos por valor total.
+     * ========================================================================= */
     @Transactional(readOnly = true)
     public ValorInventarioDTO calcularValorInventario(Long clientId) {
-        List<Product> productos = productRepository.findByClientId(clientId);
+        // Navega relación sucursal -> client
+        List<Product> productos = productRepository.findBySucursalClientId(clientId);
 
         BigDecimal valorTotal = productos.stream()
-                .map(p -> p.getCost().multiply(new BigDecimal(p.getQuantity())))
+                .map(p -> safe(p.getCost()).multiply(BigDecimal.valueOf(p.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        List<ValorInventarioDTO.ProductoValorizadoDTO> topProductos = productos.stream()
+        List<ValorInventarioDTO.ProductoValorizadoDTO> top = productos.stream()
                 .map(p -> {
                     ValorInventarioDTO.ProductoValorizadoDTO item = new ValorInventarioDTO.ProductoValorizadoDTO();
                     item.setNombre(p.getName());
                     item.setStockActual(p.getQuantity());
-                    item.setCostoUnitario(p.getCost());
-                    item.setValorTotal(p.getCost().multiply(new BigDecimal(p.getQuantity())));
+                    item.setCostoUnitario(safe(p.getCost()));
+                    item.setValorTotal(safe(p.getCost()).multiply(BigDecimal.valueOf(p.getQuantity())));
                     return item;
                 })
                 .sorted(Comparator.comparing(ValorInventarioDTO.ProductoValorizadoDTO::getValorTotal).reversed())
@@ -255,7 +330,26 @@ public class ReportesFinancierosService {
 
         ValorInventarioDTO dto = new ValorInventarioDTO();
         dto.setValorTotalInventario(valorTotal);
-        dto.setTopProductosValorizados(topProductos);
+        dto.setTopProductosValorizados(top);
         return dto;
+    }
+
+    /* -------------------------------------------------------------------------
+     *  Utilidades privadas (claridad y DRY)
+     * ------------------------------------------------------------------------- */
+
+    /** Inicio del día (00:00:00.000) */
+    private static LocalDateTime startOfDay(LocalDate d) {
+        return d.atStartOfDay();
+    }
+
+    /** Fin del día (23:59:59.999999999) */
+    private static LocalDateTime endOfDay(LocalDate d) {
+        return d.atTime(23, 59, 59, 999_999_999);
+    }
+
+    /** Evitar NPE en operaciones con BigDecimal */
+    private static BigDecimal safe(BigDecimal bd) {
+        return bd != null ? bd : BigDecimal.ZERO;
     }
 }

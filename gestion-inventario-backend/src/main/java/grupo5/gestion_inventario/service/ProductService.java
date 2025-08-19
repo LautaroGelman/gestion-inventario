@@ -143,4 +143,12 @@ public class ProductService {
                 p.getPrice()
         );
     }
+    @Transactional(readOnly = true)
+    public List<ProductDto> findDeletedBySucursal(Long sucursalId) {
+        confirmarSucursalExiste(sucursalId);
+        return productRepo.findDeletedBySucursalId(sucursalId).stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
 }
