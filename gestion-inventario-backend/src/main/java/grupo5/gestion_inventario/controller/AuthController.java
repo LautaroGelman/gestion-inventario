@@ -1,160 +1,157 @@
 // backend/src/main/java/grupo5/gestion_inventario/controller/AuthController.java
 package grupo5.gestion_inventario.controller;
 
-import grupo5.gestion_inventario.config.JwtUtil;
 import grupo5.gestion_inventario.clientpanel.dto.AuthRequest;
 import grupo5.gestion_inventario.clientpanel.dto.AuthResponse;
-import grupo5.gestion_inventario.model.*;
+import grupo5.gestion_inventario.config.JwtUtil;
+import grupo5.gestion_inventario.model.Client;
+import grupo5.gestion_inventario.model.Employee;
+import grupo5.gestion_inventario.model.EmployeeRole;
 import grupo5.gestion_inventario.repository.ClientRepository;
 import grupo5.gestion_inventario.repository.EmployeeRepository;
-import grupo5.gestion_inventario.repository.SucursalRepository;
 import grupo5.gestion_inventario.superpanel.model.AdminUser;
 import grupo5.gestion_inventario.superpanel.repository.AdminUserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * AuthController
+ * - /api/auth/login: autentica y devuelve AuthResponse con token, clientId, employeeId, sucursalId (si aplica) y roles.
+ * - /api/auth/me:    devuelve los mismos metadatos (sin token), útil para restaurar sesión en el front.
+ */
 @RestController
 @RequestMapping("/api/auth")
+@RequiredArgsConstructor
 public class AuthController {
 
-    @Autowired private AuthenticationManager authenticationManager;
-    @Autowired private JwtUtil              jwtUtil;
+    private final AuthenticationManager authenticationManager;
+    private final JwtUtil               jwtUtil;
 
-    @Autowired private EmployeeRepository   employeeRepo;
-    @Autowired private ClientRepository     clientRepo;
-    @Autowired private SucursalRepository   sucursalRepo;
-    @Autowired private AdminUserRepository  adminUserRepo;
+    private final EmployeeRepository    employeeRepo;
+    private final ClientRepository      clientRepo;
+    private final AdminUserRepository   adminUserRepo;
 
+    /* ============================
+     * POST /api/auth/login
+     * ============================ */
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest authRequest) throws Exception {
+    public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest authRequest) {
 
-        /* --------------------------------------------------------
-         * 1) Autenticación genérica (Spring Security)
-         * -------------------------------------------------------- */
+        // 1) Autenticar con Spring Security
         Authentication auth = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         authRequest.getUsername(),
                         authRequest.getPassword()
-                ));
-        SecurityContextHolder.getContext().setAuthentication(auth);
+                )
+        );
+
         UserDetails userDetails = (UserDetails) auth.getPrincipal();
 
-        /* --------------------------------------------------------
-         * 2) Roles del usuario autenticado
-         * -------------------------------------------------------- */
+        // 2) Roles del usuario autenticado
         Set<String> roles = userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
+                .map(GrantedAuthority::getAuthority) // p.ej. ROLE_CAJERO
                 .collect(Collectors.toSet());
 
+        String username = userDetails.getUsername();
         String token;
         Long clientId   = null;
         Long employeeId = null;
-        Long sucursalId = null;   // ← NUEVO: sucursal activa (null para PROPIETARIO)
+        Long sucursalId = null; // null para propietarios/sin sucursal
 
-        /* --------------------------------------------------------
-         * 3) Flujo para EMPLEADOS (incluye PROPIETARIO)
-         * -------------------------------------------------------- */
-        boolean esEmpleado = roles.stream().anyMatch(r ->
-                r.equals("ROLE_PROPIETARIO")      ||
-                        r.equals("ROLE_ADMINISTRADOR")    ||
-                        r.equals("ROLE_CAJERO")           ||
-                        r.equals("ROLE_MULTIFUNCION")     ||
-                        r.equals("ROLE_INVENTARIO")       ||
-                        r.equals("ROLE_VENTAS_INVENTARIO")
-        );
-
-        if (esEmpleado) {
-
-            Employee emp = employeeRepo.findByEmail(userDetails.getUsername())
-                    .orElseThrow(() -> new Exception(
-                            "Empleado no encontrado: " + userDetails.getUsername()));
-
-            token      = jwtUtil.generateToken(emp);
-            clientId   = emp.getClient().getId();
+        // 3) Flujo empleado (incluye PROPIETARIO/ADMINISTRADOR/CAJERO/etc.)
+        Employee emp = employeeRepo.findByEmail(username).orElse(null);
+        if (emp != null) {
+            clientId   = emp.getClient() != null ? emp.getClient().getId() : null;
             employeeId = emp.getId();
 
-            // Solo empleados distintos de PROPIETARIO llevan sucursal en el token
+            // sucursalId solo si NO es propietario y tiene sucursal asignada
             if (emp.getRole() != EmployeeRole.PROPIETARIO && emp.getSucursal() != null) {
                 sucursalId = emp.getSucursal().getId();
             }
 
-            /* --------------------------------------------------------
-             * 4) Flujo para CLIENTE dueño (si mantienes ROLE_CLIENT)
-             *    (opcional – puedes eliminarlo cuando migres por completo
-             *     a PROPIETARIO como único punto de acceso del cliente)
-             * -------------------------------------------------------- */
-        } else if (roles.contains("ROLE_CLIENT")) {
+            token = jwtUtil.generateToken(emp);
+        }
+        // 4) Flujo cliente dueño (compatibilidad si seguís soportando ROLE_CLIENT)
+        else if (roles.contains("ROLE_CLIENT")) {
+            Client client = clientRepo.findByEmail(username)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Cliente no encontrado"));
 
-            Client client = clientRepo.findByEmail(userDetails.getUsername())
-                    .orElseThrow(() -> new Exception(
-                            "Cliente no encontrado: " + userDetails.getUsername()));
-
-            // buscamos PROPIETARIO recién creado
+            // Buscar el empleado PROPIETARIO del cliente para firmar el token
             Employee owner = employeeRepo
                     .findByClientIdAndRole(client.getId(), EmployeeRole.PROPIETARIO)
-                    .orElseThrow(() -> new Exception(
-                            "Empleado PROPIETARIO no encontrado para el cliente"));
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Propietario no encontrado para el cliente"));
 
-            token      = jwtUtil.generateToken(owner);
             clientId   = client.getId();
             employeeId = owner.getId();
-            // sucursalId = null  (propietario ve todas)
-
-            /* --------------------------------------------------------
-             * 5) Flujo para usuarios del SUPERPANEL (AdminUser)
-             * -------------------------------------------------------- */
-        } else {
-
-            AdminUser admin = adminUserRepo.findByUsername(userDetails.getUsername())
-                    .orElseThrow(() -> new Exception(
-                            "Admin no encontrado: " + userDetails.getUsername()));
-
+            // sucursalId = null (propietario ve todas)
+            token = jwtUtil.generateToken(owner);
+        }
+        // 5) Flujo superpanel (admin)
+        else {
+            AdminUser admin = adminUserRepo.findByUsername(username)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Admin no encontrado"));
             token = jwtUtil.generateToken(admin);
-            // clientId / employeeId / sucursalId se quedan null
+            // clientId/employeeId/sucursalId quedan null
         }
 
-        /* --------------------------------------------------------
-         * 6) Respuesta
-         * -------------------------------------------------------- */
-        AuthResponse resp = new AuthResponse();
-        resp.setToken(token);
-        resp.setClientId(clientId);
-        resp.setEmployeeId(employeeId);
-        resp.setSucursalId(sucursalId); // ← NUEVO
-        resp.setRoles(roles);
+        // 6) Respuesta
+        AuthResponse resp = new AuthResponse(token, clientId, employeeId, sucursalId, roles);
+        return ResponseEntity.ok(resp);
+    }
 
+    /* ============================
+     * GET /api/auth/me
+     * (Sin token; útil para restaurar sesión en front)
+     * ============================ */
+    @GetMapping("/me")
+    public ResponseEntity<AuthResponse> me(@AuthenticationPrincipal UserDetails principal) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No autenticado");
+        }
+
+        Set<String> roles = principal.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toSet());
+
+        String username = principal.getUsername();
+        Long clientId   = null;
+        Long employeeId = null;
+        Long sucursalId = null;
+
+        Employee emp = employeeRepo.findByEmail(username).orElse(null);
+        if (emp != null) {
+            clientId   = emp.getClient() != null ? emp.getClient().getId() : null;
+            employeeId = emp.getId();
+            if (emp.getRole() != EmployeeRole.PROPIETARIO && emp.getSucursal() != null) {
+                sucursalId = emp.getSucursal().getId();
+            }
+        } else if (roles.contains("ROLE_CLIENT")) {
+            Client client = clientRepo.findByEmail(username)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Cliente no encontrado"));
+            // Buscar propietario para informar employeeId (opcional)
+            Employee owner = employeeRepo
+                    .findByClientIdAndRole(client.getId(), EmployeeRole.PROPIETARIO)
+                    .orElse(null);
+            clientId   = client.getId();
+            employeeId = owner != null ? owner.getId() : null;
+        } else {
+            // Superpanel: nada que completar (queda todo null)
+        }
+
+        // token = null en /me
+        AuthResponse resp = new AuthResponse(null, clientId, employeeId, sucursalId, roles);
         return ResponseEntity.ok(resp);
     }
 }
-
-/* ============================================================
- *  LEGACY (ANTES DEL CAMBIO A MULTI-SUCURSAL)
- *  El bloque siguiente mostraba la lógica original basada solo
- *  en clientId. Queda comentado para referencia y se eliminará
- *  una vez terminada la migración.
- * ============================================================
- *
- *  if (roles.stream().anyMatch(r ->
- *          r.equals("ROLE_ADMINISTRADOR") ||
- *          r.equals("ROLE_CAJERO")        ||
- *          r.equals("ROLE_MULTIFUNCION")  ||
- *          r.equals("ROLE_INVENTARIO")    ||
- *          r.equals("ROLE_VENTAS_INVENTARIO"))) {
- *
- *      // empleado sin campo sucursalId
- *      ...
- *  } else if (roles.contains("ROLE_CLIENT")) {
- *      // cliente dueño — generaba token con empleado ADMINISTRADOR
- *      ...
- *  }
- */

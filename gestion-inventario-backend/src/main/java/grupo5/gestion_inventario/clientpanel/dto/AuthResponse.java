@@ -1,34 +1,25 @@
+// backend/src/main/java/grupo5/gestion_inventario/clientpanel/dto/AuthResponse.java
 package grupo5.gestion_inventario.clientpanel.dto;
 
-import lombok.Getter;
-import lombok.Setter;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.*;
 
 import java.util.Set;
 
 /**
- * Respuesta de autenticación que contiene el token JWT
- * y metadatos del usuario autenticado.
+ * Respuesta de autenticación con token JWT y metadatos del usuario.
+ * - sucursalId: null para PROPIETARIO o usuarios sin sucursal asignada.
  */
-@Setter
 @Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class AuthResponse {
-    // Getters y Setters
     private String token;
     private Long clientId;
     private Long employeeId;
-    private Long sucursalId;   // ← NUEVO: sucursal activa (null para PROPIETARIO o SUPERPANEL)
-    private Set<String> roles;
-
-    // Constructor por defecto
-    public AuthResponse() {}
-
-    // Constructor de conveniencia
-    public AuthResponse(String token, Long clientId, Long employeeId, Long sucursalId, Set<String> roles) {
-        this.token = token;
-        this.clientId = clientId;
-        this.employeeId = employeeId;
-        this.sucursalId = sucursalId;
-        this.roles = roles;
-    }
-
+    private Long sucursalId;   // null para propietario / sin sucursal
+    private Set<String> roles; // e.g. ["ROLE_CAJERO","ROLE_ADMINISTRADOR"]
 }

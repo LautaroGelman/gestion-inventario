@@ -26,31 +26,31 @@ public class StockAlertScheduler {
     // Se ejecuta todos los días a las 2:00 AM
     @Scheduled(cron = "0 0 2 * * ?")
     public void checkLowStockLevels() {
-        logger.info("Iniciando tarea programada: Verificación de stock bajo...");
+        logger.info("Iniciando tarea programada: Verificación de quantity bajo...");
         List<Product> products = productRepository.findAll();
 
         for (Product product : products) {
             // CORRECCIÓN: Usar el método estandarizado getQuantity()
             if (product.getQuantity() <= product.getLowStockThreshold()) {
-                // Verificar si ya existe una alerta de stock bajo no leída para este producto
+                // Verificar si ya existe una alerta de quantity bajo no leída para este producto
                 alertRepository.findFirstByProductAndIsReadFalse(product).ifPresentOrElse(
                         (alert) -> {
                             // Ya existe una alerta, no hacemos nada
                         },
                         () -> {
                             // No existe una alerta, la creamos
-                            logger.info("Generando alerta de stock bajo para el producto: " + product.getName());
+                            logger.info("Generando alerta de quantity bajo para el producto: " + product.getName());
                             Alert newAlert = new Alert();
                             newAlert.setClient(product.getClient());
                             newAlert.setProduct(product);
                             newAlert.setType("LOW_STOCK");
                             // CORRECCIÓN: Usar el método estandarizado getQuantity()
-                            newAlert.setMessage("El producto '" + product.getName() + "' tiene bajo stock (" + product.getQuantity() + " unidades restantes).");
+                            newAlert.setMessage("El producto '" + product.getName() + "' tiene bajo quantity (" + product.getQuantity() + " unidades restantes).");
                             alertRepository.save(newAlert);
                         }
                 );
             }
         }
-        logger.info("Tarea de verificación de stock bajo finalizada.");
+        logger.info("Tarea de verificación de quantity bajo finalizada.");
     }
 }

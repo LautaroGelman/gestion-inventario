@@ -104,6 +104,6 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
          WHERE s.createdAt >= :since
     """)
     BigDecimal totalRevenueSince(@Param("since") LocalDateTime since);
-    
+
 }
 

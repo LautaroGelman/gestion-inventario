@@ -106,7 +106,7 @@ public class PurchaseOrderService {
                     "Solo se pueden recibir órdenes de compra pendientes");
         }
 
-        /* actualizar stock */
+        /* actualizar quantity */
         for (PurchaseOrderItem item : order.getItems()) {
             Product product = item.getProduct();
             int newQty = product.getQuantity() + item.getQuantity();

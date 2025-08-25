@@ -51,7 +51,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     void restore(@Param("sucursalId") Long sucursalId,
                  @Param("productId") Long productId);
 
-    /** Conteo de productos en o por debajo del umbral de stock bajo (sólo activos por @Where) */
+    /** Conteo de productos en o por debajo del umbral de quantity bajo (sólo activos por @Where) */
     @Query("""
         SELECT COUNT(p) FROM Product p
          WHERE p.sucursal.id = :sucursalId

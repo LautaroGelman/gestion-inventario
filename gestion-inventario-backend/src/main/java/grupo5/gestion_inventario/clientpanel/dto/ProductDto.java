@@ -11,7 +11,7 @@ public record ProductDto(
         String code,
         String name,
         String description,
-        int stock,
+        int quantity,
         BigDecimal cost, // <-- AÑADIDO
         BigDecimal price
 ) {}

@@ -1,132 +1,201 @@
 // src/components/ReturnFormPage.tsx
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { getSaleById, createSaleReturn } from '@/services/api';
 
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, Undo2 } from 'lucide-react';
+
+// Tipos alineados al backend de multi-sucursal
 interface SaleItem {
     saleItemId: number;
-    product: { id: number; name: string };
+    productId: number;
+    productName?: string;
     quantity: number;
 }
 
 interface Sale {
     id: number;
-    customer: string;
-    saleDate: string;
+    fecha?: string;      // compat
+    saleDate?: string;   // compat
     items: SaleItem[];
 }
 
 export default function ReturnFormPage() {
-    const { user } = useAuth();
+    const { user, isOwner } = useAuth();
     const clientId = user?.clientId;
+    const sucursalId = user?.sucursalId ?? null;
+
     const router = useRouter();
     const pathname = usePathname();
 
-    // Extraemos saleId del path: /return-sale/[saleId]
-    const parts = pathname.split('/');
-    const saleIdParam = parts[parts.length - 1];
-    const saleId = parseInt(saleIdParam, 10);
+    // SaleId desde la URL (toma el último segmento numérico)
+    const saleId = useMemo(() => {
+        const last = pathname.split('/').filter(Boolean).pop() ?? '';
+        const n = Number(last);
+        return Number.isFinite(n) ? n : NaN;
+    }, [pathname]);
 
     const [sale, setSale] = useState<Sale | null>(null);
-    const [returnItems, setReturnItems] = useState<Record<number, number>>({});
+    const [returnQtyByItem, setReturnQtyByItem] = useState<Record<number, number>>({});
+    const [reason, setReason] = useState('');
     const [loading, setLoading] = useState<boolean>(true);
+    const [submitting, setSubmitting] = useState<boolean>(false);
     const [error, setError] = useState<string>('');
 
+    // Guards de contexto
+    if (!clientId) {
+        return <div className="p-4 text-sm">No se encontró <code>clientId</code> en la sesión.</div>;
+    }
+    if (isOwner && (sucursalId == null || sucursalId === '')) {
+        return (
+          <div className="p-4 border rounded-md bg-card/50 text-sm">
+              Seleccioná una sucursal en el header para procesar devoluciones.
+          </div>
+        );
+    }
+
+    // Cargar venta por CLIENTE + SUCURSAL
     useEffect(() => {
-        if (!clientId || isNaN(saleId)) return;
+        if (!clientId || !sucursalId || isNaN(saleId)) return;
         (async () => {
+            setLoading(true);
+            setError('');
             try {
-                const res = await getSaleById(clientId, saleId.toString());
-                setSale(res.data as Sale);
+                const res = await getSaleById(clientId, sucursalId, String(saleId));
+                const data = res.data as Sale;
+                setSale(data);
             } catch (err: any) {
-                console.error('Error fetching sale details:', err);
-                setError(
-                    'No se pudieron cargar los detalles de la venta. (El endpoint puede no existir en el backend)'
-                );
+                setError('No se pudieron cargar los detalles de la venta.');
             } finally {
                 setLoading(false);
             }
         })();
-    }, [clientId, saleId]);
+    }, [clientId, sucursalId, saleId]);
 
-    const handleQuantityChange = (productId: number, qty: number) => {
-        if (!sale) return;
-        const item = sale.items.find(i => i.product.id === productId);
-        if (!item) return;
-        const clamped = Math.max(0, Math.min(qty, item.quantity));
-        setReturnItems(prev => ({ ...prev, [productId]: clamped }));
+    const handleQtyChange = (saleItemId: number, max: number, raw: string) => {
+        const qty = Math.max(0, Math.min(Number(raw) || 0, max));
+        setReturnQtyByItem((prev) => ({ ...prev, [saleItemId]: qty }));
     };
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        if (!clientId || isNaN(saleId)) {
-            setError('Error de autenticación. No se pudo procesar la devolución.');
+        if (!clientId || !sucursalId || !sale) {
+            setError('Error de contexto (cliente/sucursal/venta).');
             return;
         }
-        const itemsToReturn = Object.entries(returnItems)
-            .map(([key, val]) => ({ productId: parseInt(key, 10), quantity: val }))
-            .filter(item => item.quantity > 0);
-        if (itemsToReturn.length === 0) {
-            alert('Por favor, selecciona la cantidad de al menos un producto a devolver.');
+
+        const items = Object.entries(returnQtyByItem)
+          .filter(([, q]) => q > 0)
+          .map(([saleItemId, quantity]) => ({ saleItemId: Number(saleItemId), quantity }));
+
+        if (items.length === 0) {
+            setError('Indicá al menos una cantidad a devolver.');
             return;
         }
+        if (!reason.trim()) {
+            setError('El motivo de la devolución es obligatorio.');
+            return;
+        }
+
+        setSubmitting(true);
+        setError('');
         try {
-            await createSaleReturn(clientId, { originalSaleId: saleId, items: itemsToReturn });
-            alert('Devolución procesada con éxito.');
-            router.push('/panel#sales');
+            // Por multi-sucursal: NO enviar sucursalId en el body
+            await createSaleReturn(clientId, sucursalId, {
+                saleId: sale.id,
+                reason,
+                items,
+            });
+            alert('Devolución registrada correctamente.');
+            router.push('/panel'); // o '/panel#returns' según tu navegación
         } catch (err: any) {
-            console.error('Error creating return:', err);
-            setError(err.response?.data?.message || 'Error al procesar la devolución.');
+            setError(err?.response?.data?.message || 'Error al procesar la devolución.');
+        } finally {
+            setSubmitting(false);
         }
     };
 
-    if (loading) return <div>Cargando...</div>;
-    if (error) return <div className="error-message">{error}</div>;
-    if (!sale) return <div>Venta no encontrada.</div>;
+    if (loading) return <div className="p-6">Cargando devolución…</div>;
+    if (error && !sale) return <div className="p-4 text-destructive">{error}</div>;
+    if (!sale) return <div className="p-4">Venta no encontrada.</div>;
+
+    const saleDate = sale.saleDate ?? sale.fecha ?? '';
 
     return (
-        <div className="return-form-container">
-            <h2>Procesar Devolución de Venta #{sale.id}</h2>
-            <p><strong>Cliente:</strong> {sale.customer}</p>
-            <p><strong>Fecha de Venta:</strong> {new Date(sale.saleDate).toLocaleString()}</p>
+      <div className="max-w-4xl mx-auto p-4 md:p-6">
+          <div className="mb-4">
+              <Button variant="outline" onClick={() => router.back()} className="gap-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  Volver
+              </Button>
+          </div>
 
-            <form onSubmit={handleSubmit}>
-                <table className="return-table">
-                    <thead>
-                    <tr>
-                        <th>Producto</th>
-                        <th>Cantidad Comprada</th>
-                        <th>Cantidad a Devolver</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {sale.items.map(item => (
-                        <tr key={item.product.id}>
-                            <td>{item.product.name}</td>
-                            <td>{item.quantity}</td>
-                            <td>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    max={item.quantity}
-                                    value={returnItems[item.product.id] || 0}
-                                    onChange={e => handleQuantityChange(
-                                        item.product.id,
-                                        parseInt(e.target.value, 10) || 0
-                                    )}
-                                />
-                            </td>
-                        </tr>
-                    ))}
-                    </tbody>
-                </table>
-                <button type="submit" className="submit-button">
-                    Confirmar Devolución
-                </button>
-            </form>
-        </div>
+          <Card>
+              <CardHeader>
+                  <CardTitle>Procesar Devolución — Venta #{sale.id}</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                      Fecha de venta: {saleDate ? new Date(saleDate).toLocaleString() : '—'}
+                  </p>
+              </CardHeader>
+
+              <CardContent className="space-y-6">
+                  <div className="border rounded-md overflow-hidden">
+                      <Table>
+                          <TableHeader>
+                              <TableRow>
+                                  <TableHead>Producto</TableHead>
+                                  <TableHead className="text-center">Cant. Vendida</TableHead>
+                                  <TableHead className="w-[180px]">Cant. a Devolver</TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {sale.items.map((it) => (
+                                <TableRow key={it.saleItemId}>
+                                    <TableCell>{it.productName ?? `ID: ${it.productId}`}</TableCell>
+                                    <TableCell className="text-center">{it.quantity}</TableCell>
+                                    <TableCell>
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          max={it.quantity}
+                                          value={returnQtyByItem[it.saleItemId] ?? 0}
+                                          onChange={(e) => handleQtyChange(it.saleItemId, it.quantity, e.target.value)}
+                                        />
+                                    </TableCell>
+                                </TableRow>
+                              ))}
+                          </TableBody>
+                      </Table>
+                  </div>
+
+                  <div className="space-y-2">
+                      <label className="text-sm font-medium">Motivo de la devolución</label>
+                      <Textarea
+                        placeholder="Describe brevemente el motivo…"
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                        required
+                      />
+                  </div>
+
+                  {error && <p className="text-sm text-destructive">{error}</p>}
+              </CardContent>
+
+              <CardFooter className="flex justify-end">
+                  <Button onClick={handleSubmit} disabled={submitting}>
+                      <Undo2 className="h-4 w-4 mr-2" />
+                      {submitting ? 'Procesando…' : 'Confirmar Devolución'}
+                  </Button>
+              </CardFooter>
+          </Card>
+      </div>
     );
 }

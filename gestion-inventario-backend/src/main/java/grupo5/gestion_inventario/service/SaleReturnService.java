@@ -77,7 +77,7 @@ public class SaleReturnService {
                         "El producto no pertenece a la sucursal");
             }
 
-            /* Ajuste de stock */
+            /* Ajuste de quantity */
             product.setQuantity(product.getQuantity() + itemReq.getQuantity());
 
             /* Crear ítem de devolución */
