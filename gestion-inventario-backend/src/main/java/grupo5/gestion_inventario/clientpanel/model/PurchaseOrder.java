@@ -2,6 +2,7 @@
 package grupo5.gestion_inventario.clientpanel.model;
 
 import grupo5.gestion_inventario.model.Client;
+import grupo5.gestion_inventario.model.Provider;
 import grupo5.gestion_inventario.model.Sucursal;
 import jakarta.persistence.*;
 import lombok.Getter;

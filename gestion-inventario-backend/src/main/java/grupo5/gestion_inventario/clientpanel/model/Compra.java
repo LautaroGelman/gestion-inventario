@@ -2,6 +2,7 @@ package grupo5.gestion_inventario.clientpanel.model;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import grupo5.gestion_inventario.model.Client;
+import grupo5.gestion_inventario.model.Provider;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;

@@ -1,13 +1,7 @@
 // src/main/java/grupo5/gestion_inventario/controller/ProviderController.java
 package grupo5.gestion_inventario.controller;
 
-import java.util.List;
-
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import grupo5.gestion_inventario.clientpanel.model.Provider;
-import grupo5.gestion_inventario.service.ProviderService;
 
 /**
  * ESTE CONTROLADOR HA SIDO REEMPLAZADO POR ClientProviderController PARA LA LÓGICA

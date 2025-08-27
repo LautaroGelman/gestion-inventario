@@ -330,4 +330,14 @@ export const getCategories = (clientId: string | number) =>
 export const getFinanceMovements = (clientId: string | number, from: string, to: string) =>
   apiClient.get(`${baseCliente(clientId)}/finance/movements`, { params: { from, to } });
 
+
+export const getSucursalProviders = (clientId: string|number, sucursalId: string|number) =>
+  apiClient.get(`${baseSucursal(clientId, sucursalId)}/providers`);
+
+export const linkProviderToBranch = (clientId: string|number, sucursalId: string|number, providerId: string|number) =>
+  apiClient.post(`${baseSucursal(clientId, sucursalId)}/providers/${providerId}`);
+
+export const unlinkProviderFromBranch = (clientId: string|number, sucursalId: string|number, providerId: string|number) =>
+  apiClient.delete(`${baseSucursal(clientId, sucursalId)}/providers/${providerId}`);
+
 export default apiClient;
