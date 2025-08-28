@@ -4,13 +4,14 @@
 import { useEffect, useMemo, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { getProductById, createProduct, updateProduct } from '@/services/api';
+import { getProductById, createProduct, updateProduct, getSucursalProviders, type ProviderLite } from '@/services/api';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Textarea } from '@/components/ui/textarea';
+import SearchableProviderSelect from '@/components/ui/SearchableProviderSelect';
 
 interface FormData {
     code: string;
@@ -19,6 +20,9 @@ interface FormData {
     quantity: number;
     cost: number;
     price: number;
+    lowStockThreshold: number;
+    reorderQtyDefault: number | null;
+    preferredProviderId: number | null; // opcional
 }
 
 function ArticleForm() {
@@ -46,9 +50,20 @@ function ArticleForm() {
         quantity: 0,
         cost: 0,
         price: 0,
+        lowStockThreshold: 0,
+        reorderQtyDefault: null,
+        preferredProviderId: null,
     });
+
+    // Proveedores (para el select con búsqueda)
+    const [providers, setProviders] = useState<ProviderLite[]>([]);
+    const [loadingProviders, setLoadingProviders] = useState<boolean>(false);
+
     const [loading, setLoading] = useState<boolean>(isEditing);
     const [error, setError] = useState<string>('');
+
+    // Toggle de alerta de stock bajo (si está off, el umbral se manda en 0)
+    const [lowStockEnabled, setLowStockEnabled] = useState<boolean>(false);
 
     // Carga de producto en edición (usa clientId + sucursalId + productId)
     useEffect(() => {
@@ -58,6 +73,7 @@ function ArticleForm() {
         getProductById(clientId, sucursalId, productId)
           .then((response) => {
               const { data } = response;
+              const low = Number(data.lowStockThreshold ?? 0);
               setFormData({
                   code: data.code ?? '',
                   name: data.name ?? '',
@@ -65,17 +81,52 @@ function ArticleForm() {
                   quantity: Number(data.quantity ?? 0), // mapea quantity (no 'stock')
                   cost: Number(data.cost ?? 0),
                   price: Number(data.price ?? 0),
+                  lowStockThreshold: low,
+                  reorderQtyDefault:
+                    data.reorderQtyDefault === null || data.reorderQtyDefault === undefined
+                      ? null
+                      : Number(data.reorderQtyDefault),
+                  preferredProviderId:
+                    data.preferredProviderId === null || data.preferredProviderId === undefined
+                      ? null
+                      : Number(data.preferredProviderId),
               });
+              setLowStockEnabled(low > 0);
               setError('');
           })
           .catch(() => setError('No se pudo cargar el producto para editar.'))
           .finally(() => setLoading(false));
     }, [isEditing, clientId, sucursalId, productId]);
 
+    // Cargar proveedores activos de la sucursal (para el select)
+    useEffect(() => {
+        if (!clientId || !sucursalId) return;
+        setLoadingProviders(true);
+        getSucursalProviders(clientId, sucursalId)
+          .then(setProviders)
+          .catch(() => setProviders([]))
+          .finally(() => setLoadingProviders(false));
+    }, [clientId, sucursalId]);
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
-        const processedValue = type === 'number' ? (value === '' ? 0 : Number(value)) : value;
-        setFormData((prev) => ({ ...prev, [name]: processedValue }));
+
+        // Campo especial: reorderQtyDefault permite null si se borra
+        if (name === 'reorderQtyDefault') {
+            const v = String(value).trim();
+            setFormData((prev) => ({
+                ...prev,
+                reorderQtyDefault: v === '' ? null : Number(v),
+            }));
+            return;
+        }
+
+        const processedValue =
+          type === 'number'
+            ? (value === '' ? 0 : Number(value))
+            : value;
+
+        setFormData((prev) => ({ ...prev, [name]: processedValue as any }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -94,13 +145,17 @@ function ArticleForm() {
             return;
         }
 
-        const payload = {
+        const payload: any = {
             code: String(formData.code || '').trim(),
             name: String(formData.name || '').trim(),
             description: String(formData.description || '').trim(),
             quantity: Number(formData.quantity ?? 0),
             cost: Number(formData.cost ?? 0),
             price: Number(formData.price ?? 0),
+            // Si el toggle está apagado, forzamos 0 (desactiva alerta en backend)
+            lowStockThreshold: lowStockEnabled ? Number(formData.lowStockThreshold ?? 0) : 0,
+            reorderQtyDefault: formData.reorderQtyDefault === null ? null : Number(formData.reorderQtyDefault),
+            preferredProviderId: formData.preferredProviderId === null ? null : Number(formData.preferredProviderId),
         };
 
         try {
@@ -230,6 +285,73 @@ function ArticleForm() {
                                 required
                               />
                           </div>
+                      </div>
+
+                      {/* Alerta de stock bajo + umbral */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div className="grid gap-2">
+                              <Label htmlFor="lowStockEnabled" className="flex items-center gap-2">
+                                  <input
+                                    id="lowStockEnabled"
+                                    name="lowStockEnabled"
+                                    type="checkbox"
+                                    checked={lowStockEnabled}
+                                    onChange={(e) => {
+                                        const enabled = e.target.checked;
+                                        setLowStockEnabled(enabled);
+                                        if (!enabled) {
+                                            // si se desactiva, dejamos el valor en 0 (sin alerta)
+                                            setFormData(prev => ({ ...prev, lowStockThreshold: 0 }));
+                                        } else if (enabled && (!formData.lowStockThreshold || formData.lowStockThreshold <= 0)) {
+                                            // si se activa y el valor era inválido, proponemos 1
+                                            setFormData(prev => ({ ...prev, lowStockThreshold: 1 }));
+                                        }
+                                    }}
+                                    className="h-4 w-4"
+                                  />
+                                  Alertar stock bajo
+                              </Label>
+                              <p className="text-xs text-muted-foreground">
+                                  Si está activo, el producto se marcará en **bajo stock** cuando <code>stock ≤ umbral</code>.
+                              </p>
+                          </div>
+                          <div className="grid gap-2">
+                              <Label htmlFor="lowStockThreshold">Umbral de stock bajo</Label>
+                              <Input
+                                id="lowStockThreshold"
+                                name="lowStockThreshold"
+                                type="number"
+                                value={formData.lowStockThreshold}
+                                onChange={handleChange}
+                                disabled={!lowStockEnabled}
+                              />
+                          </div>
+                          <div className="grid gap-2">
+                              <Label htmlFor="reorderQtyDefault">Reposición por defecto</Label>
+                              <Input
+                                id="reorderQtyDefault"
+                                name="reorderQtyDefault"
+                                type="number"
+                                placeholder="(opcional)"
+                                value={formData.reorderQtyDefault ?? ''}
+                                onChange={handleChange}
+                              />
+                          </div>
+                      </div>
+
+                      {/* Proveedor preferido (select con búsqueda) */}
+                      <div className="grid gap-2">
+                          <Label>Proveedor preferido</Label>
+                          <SearchableProviderSelect
+                            options={providers.map((p) => ({ id: p.id, label: p.label }))}
+                            value={formData.preferredProviderId}
+                            onChange={(id) => setFormData((prev) => ({ ...prev, preferredProviderId: id }))}
+                            placeholder={loadingProviders ? 'Cargando proveedores…' : '(opcional) Seleccioná proveedor'}
+                            disabled={loadingProviders}
+                          />
+                          <span className="text-xs text-muted-foreground">
+                Debe estar vinculado y activo en esta sucursal.
+              </span>
                       </div>
 
                       {error && <p className="text-sm text-destructive">{error}</p>}

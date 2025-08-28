@@ -10,7 +10,7 @@ import grupo5.gestion_inventario.clientpanel.model.PurchaseOrderItem;
 import grupo5.gestion_inventario.model.Provider;
 
 import grupo5.gestion_inventario.model.Product;
-import grupo5.gestion_inventario.clientpanel.model.ProviderBranch;
+import grupo5.gestion_inventario.model.ProviderBranch;
 import grupo5.gestion_inventario.model.Sucursal;
 
 import grupo5.gestion_inventario.clientpanel.repository.PurchaseOrderRepository;

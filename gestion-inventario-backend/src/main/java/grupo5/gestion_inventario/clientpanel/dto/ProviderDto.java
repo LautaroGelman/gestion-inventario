@@ -1,11 +1,17 @@
-// backend/src/main/java/grupo5/gestion_inventario/clientpanel/dto/ProviderDto.java
 package grupo5.gestion_inventario.clientpanel.dto;
 
-import lombok.*;
+import lombok.Builder;
+import lombok.Data;
 
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Data
+@Builder
 public class ProviderDto {
     private Long id;
     private String name;
+    private String contact;
+    private String phone;
+    private String email;
     private String address;
+    private String notes;
+    private Boolean active;
 }

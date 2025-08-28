@@ -1,11 +1,13 @@
-// backend/src/main/java/grupo5/gestion_inventario/clientpanel/dto/ProviderCreateRequest.java
 package grupo5.gestion_inventario.clientpanel.dto;
 
-import lombok.*;
+import lombok.Data;
 
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Data
 public class ProviderCreateRequest {
-    private String name;
-    private String address;
+    private String name;     // nombre comercial
+    private String contact;  // persona de contacto
+    private String phone;    // teléfono
+    private String email;    // email
+    private String address;  // dirección
+    private String notes;    // notas
 }
-

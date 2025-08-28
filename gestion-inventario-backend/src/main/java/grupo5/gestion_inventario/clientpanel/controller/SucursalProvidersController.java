@@ -1,11 +1,10 @@
-// backend/src/main/java/grupo5/gestion_inventario/clientpanel/controller/SucursalProvidersController.java
 package grupo5.gestion_inventario.clientpanel.controller;
 
 import grupo5.gestion_inventario.clientpanel.dto.ProviderDto;
 import grupo5.gestion_inventario.model.Employee;
 import grupo5.gestion_inventario.model.EmployeeRole;
 import grupo5.gestion_inventario.model.Provider;
-import grupo5.gestion_inventario.clientpanel.model.ProviderBranch;
+import grupo5.gestion_inventario.model.ProviderBranch;
 import grupo5.gestion_inventario.model.Sucursal;
 import grupo5.gestion_inventario.repository.EmployeeRepository;
 import grupo5.gestion_inventario.repository.ProviderBranchRepository;
@@ -43,7 +42,6 @@ public class SucursalProvidersController {
         this.providerBranchRepo = providerBranchRepo;
     }
 
-    /** Validación multi-tenant + roles (mismo patrón que inventario/ventas/devoluciones) */
     private Sucursal validateAccess(Long clientId, Long sucursalId, Authentication auth) {
         Employee emp = employeeRepo.findByEmail(auth.getName())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Empleado no encontrado"));
@@ -64,9 +62,6 @@ public class SucursalProvidersController {
         return suc;
     }
 
-    /* ------------------------------------------------------------
-     * GET /providers  → Lista proveedores vinculados a la sucursal
-     * ------------------------------------------------------------ */
     @GetMapping
     public ResponseEntity<List<ProviderDto>> list(
             @PathVariable Long clientId,
@@ -76,16 +71,13 @@ public class SucursalProvidersController {
         validateAccess(clientId, sucursalId, auth);
 
         List<ProviderDto> result = providerBranchRepo.findBySucursalId(sucursalId).stream()
-                .filter(ProviderBranch::isActive) // solo vínculos activos
+                .filter(ProviderBranch::isActive)
                 .map(pb -> toDto(pb.getProvider()))
                 .toList();
 
         return ResponseEntity.ok(result);
     }
 
-    /* -----------------------------------------------------------------------
-     * POST /providers/{providerId}  → Vincula un proveedor existente a sucursal
-     * ----------------------------------------------------------------------- */
     @PostMapping("/{providerId}")
     public ResponseEntity<Void> link(
             @PathVariable Long clientId,
@@ -98,7 +90,6 @@ public class SucursalProvidersController {
         Provider provider = providerRepo.findById(providerId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Proveedor no encontrado"));
 
-        // Seguridad: el proveedor debe pertenecer al mismo cliente
         if (provider.getClient() == null || !provider.getClient().getId().equals(clientId)) {
             throw new AccessDeniedException("Proveedor no pertenece al cliente");
         }
@@ -111,14 +102,9 @@ public class SucursalProvidersController {
             providerBranchRepo.save(link);
             return ResponseEntity.status(HttpStatus.CREATED).build();
         }
-
-        // Ya existía el vínculo → 204 idempotente
         return ResponseEntity.noContent().build();
     }
 
-    /* -----------------------------------------------------------------------
-     * DELETE /providers/{providerId}  → Desvincula proveedor de la sucursal
-     * ----------------------------------------------------------------------- */
     @DeleteMapping("/{providerId}")
     public ResponseEntity<Void> unlink(
             @PathVariable Long clientId,
@@ -127,19 +113,21 @@ public class SucursalProvidersController {
             Authentication auth
     ) {
         validateAccess(clientId, sucursalId, auth);
-
-        // Si no existe, deleteBy... no falla; comportamiento idempotente
         providerBranchRepo.deleteByProviderIdAndSucursalId(providerId, sucursalId);
         return ResponseEntity.noContent().build();
     }
 
-    /* Mapper simple */
     private ProviderDto toDto(Provider p) {
         if (p == null) return null;
-        ProviderDto dto = new ProviderDto();
-        dto.setId(p.getId());
-        dto.setName(p.getName());
-        dto.setAddress(p.getAddress());
-        return dto;
+        return ProviderDto.builder()
+                .id(p.getId())
+                .name(p.getName())
+                .contact(p.getContact())
+                .phone(p.getPhone())
+                .email(p.getEmail())
+                .address(p.getAddress())
+                .notes(p.getNotes())
+                .active(p.isActive())
+                .build();
     }
 }

@@ -1,4 +1,3 @@
-// backend/src/main/java/grupo5/gestion_inventario/repository/ProductRepository.java
 package grupo5.gestion_inventario.repository;
 
 import grupo5.gestion_inventario.model.Product;
@@ -19,6 +18,12 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     /** Inventario activo de una sucursal (filtrado por @Where(active = TRUE)) */
     List<Product> findBySucursalId(Long sucursalId);
+
+    /** Buscar producto por código dentro de una sucursal */
+    Optional<Product> findBySucursalIdAndCode(Long sucursalId, String code);
+
+    /** Verificar existencia de un código dentro de una sucursal */
+    boolean existsBySucursalIdAndCode(Long sucursalId, String code);
 
     /** Todos los productos de una sucursal, incluyendo soft-deleted (omite @Where) */
     @Query(value = """
@@ -63,33 +68,28 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
      *  UTILIDADES
      * ============================================================ */
 
-    /** Búsqueda global por código (único) */
+    /** Búsqueda global por código (si hiciera falta a nivel cliente) */
     Optional<Product> findByCode(String code);
 
     /** Listado por cliente navegando relación sucursal → client (para reportes) */
     List<Product> findBySucursalClientId(Long clientId);
 
-    /* ============================================================
-     *  LEGACY (comentado)
-     * ============================================================ */
-    /*
-    List<Product> findByClientId(Long clientId);
-
-    @Query(value = "SELECT * FROM product WHERE client_id = :clientId", nativeQuery = true)
-    List<Product> findAllIncludingDeleted(@Param("clientId") Long clientId);
-
-    @Query(value = "SELECT * FROM product WHERE client_id = :clientId AND active = 0", nativeQuery = true)
-    List<Product> findDeletedByClient(@Param("clientId") Long clientId);
-
-    @Modifying @Transactional
-    @Query(value = "UPDATE product SET active = 1 WHERE id = :productId AND client_id = :clientId", nativeQuery = true)
-    void restore(@Param("clientId") Long clientId, @Param("productId") Long productId);
+    @Query("""
+      select p from Product p
+       where p.sucursal.id = :sucursalId
+         and p.preferredProvider.id = :providerId
+         and p.lowStockThreshold is not null
+         and p.quantity <= p.lowStockThreshold
+    """)
+    List<Product> findLowStockPreferred(@Param("sucursalId") Long sucursalId,
+                                        @Param("providerId") Long providerId);
 
     @Query("""
-        SELECT COUNT(p) FROM Product p
-         WHERE p.client.id = :clientId
-           AND p.quantity  <= p.lowStockThreshold
-        """)
-    long countLowStock(@Param("clientId") Long clientId);
-    */
+      select p from Product p
+       where p.sucursal.id = :sucursalId
+         and p.preferredProvider.id = :providerId
+    """)
+    List<Product> findAllBySucursalAndPreferred(@Param("sucursalId") Long sucursalId,
+                                                @Param("providerId") Long providerId);
+
 }

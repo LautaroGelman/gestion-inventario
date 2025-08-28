@@ -8,12 +8,13 @@ public class ProductRequest {
     private String description;
     private BigDecimal cost;
     private BigDecimal price;
-    private int quantity; // CAMPO Y TIPO CORREGIDOS
+    private Integer quantity;
     private Integer lowStockThreshold;
 
-    public ProductRequest() {}
+    private Integer reorderQtyDefault;
+    private Long preferredProviderId;
 
-    // Getters y Setters
+    // getters/setters...
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }
 
@@ -29,11 +30,15 @@ public class ProductRequest {
     public BigDecimal getPrice() { return price; }
     public void setPrice(BigDecimal price) { this.price = price; }
 
-    // --- MÉTODOS CORREGIDOS ---
-    public int getQuantity() { return quantity; }
-    public void setQuantity(int quantity) { this.quantity = quantity; }
-    // -------------------------
+    public Integer getQuantity() { return quantity; }
+    public void setQuantity(Integer quantity) { this.quantity = quantity; }
 
     public Integer getLowStockThreshold() { return lowStockThreshold; }
     public void setLowStockThreshold(Integer lowStockThreshold) { this.lowStockThreshold = lowStockThreshold; }
+
+    public Integer getReorderQtyDefault() { return reorderQtyDefault; }
+    public void setReorderQtyDefault(Integer reorderQtyDefault) { this.reorderQtyDefault = reorderQtyDefault; }
+
+    public Long getPreferredProviderId() { return preferredProviderId; }
+    public void setPreferredProviderId(Long preferredProviderId) { this.preferredProviderId = preferredProviderId; }
 }

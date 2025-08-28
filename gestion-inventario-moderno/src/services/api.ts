@@ -1,4 +1,3 @@
-// src/services/api.ts
 // ✅ MULTISUCURSAL alineado con tus controllers actuales:
 //    - Dashboard y reportes por sucursal usan la ruta anidada /sucursales/{sucursalId}/...
 //    - Reportes financieros agregados por cliente mantienen /client-panel/{clientId}/reports/...
@@ -35,7 +34,7 @@ const mustId = (v: string | number | null | undefined, name: string) => {
 };
 
 // ────────────────────────────────────────────────────────────────
-/** Interceptores: agrega Bearer y maneja 401/403 */
+// Interceptores
 // ────────────────────────────────────────────────────────────────
 apiClient.interceptors.request.use(
   (config) => {
@@ -71,7 +70,7 @@ apiClient.interceptors.response.use(
 );
 
 // ────────────────────────────────────────────────────────────────
-/** Helpers de rutas */
+// Helpers de rutas
 // ────────────────────────────────────────────────────────────────
 const baseCliente = (clientId: string | number) => `/client-panel/${mustId(clientId, 'clientId')}`;
 const baseSucursal = (clientId: string | number, sucursalId: string | number) =>
@@ -105,19 +104,19 @@ export const deactivateClient = (clientId: string | number) =>
   apiClient.patch(`/admin/clients/${clientId}/inactive`);
 
 // ────────────────────────────────────────────────────────────────
-// Cliente — Sucursales (selector del propietario)
+// Cliente — Sucursales
 // ────────────────────────────────────────────────────────────────
 export const getSucursales = (clientId: string | number) =>
   apiClient.get(`${baseCliente(clientId)}/sucursales`);
 
-export const getBranches = getSucursales; // alias por compat
+export const getBranches = getSucursales;
 export const createBranch = (
   clientId: string | number,
   data: { name?: string; address?: string }
 ) => apiClient.post(`${baseCliente(clientId)}/sucursales`, data);
 
 // ────────────────────────────────────────────────────────────────
-// Alerts / Notificaciones (nivel cliente)
+// Alerts / Notificaciones
 // ────────────────────────────────────────────────────────────────
 export const getAlerts = (clientId: string | number) =>
   apiClient.get(`${baseCliente(clientId)}/alerts`);
@@ -126,7 +125,7 @@ export const markAlertAsRead = (clientId: string | number, alertId: string | num
   apiClient.post(`${baseCliente(clientId)}/alerts/${alertId}/mark-as-read`);
 
 // ────────────────────────────────────────────────────────────────
-// DASHBOARD — POR SUCURSAL (según tu ClientPanelController)
+// Dashboard
 // ────────────────────────────────────────────────────────────────
 export const getSucursalDashboard = (
   clientId: string | number,
@@ -167,46 +166,24 @@ export const getProductById = (
 ) => apiClient.get(`${baseSucursal(clientId, sucursalId)}/items/${productId}`);
 
 // ────────────────────────────────────────────────────────────────
-// Proveedores (NIVEL CLIENTE, compat)
+// VENTAS
 // ────────────────────────────────────────────────────────────────
-export const getProviders = (clientId: string | number) =>
-  apiClient.get(`${baseCliente(clientId)}/providers`);
+export const createSale = (clientId: string | number, sucursalId: string | number, saleData: Record<string, any>) =>
+  apiClient.post(`${baseSucursal(clientId, sucursalId)}/sales`, saleData);
 
-export const addProvider = (clientId: string | number, providerData: Record<string, any>) =>
-  apiClient.post(`${baseCliente(clientId)}/providers`, providerData);
+export const getSales = (clientId: string | number, sucursalId: string | number, params?: any) =>
+  apiClient.get(`${baseSucursal(clientId, sucursalId)}/sales`, { params });
 
-// ────────────────────────────────────────────────────────────────
-// VENTAS (POR SUCURSAL)
-// ────────────────────────────────────────────────────────────────
-export const createSale = (
-  clientId: string | number,
-  sucursalId: string | number,
-  saleData: Record<string, any>
-) => apiClient.post(`${baseSucursal(clientId, sucursalId)}/sales`, saleData);
-
-export const getSales = (
-  clientId: string | number,
-  sucursalId: string | number,
-  params?: any
-) => apiClient.get(`${baseSucursal(clientId, sucursalId)}/sales`, { params });
-
-export const getSaleById = (
-  clientId: string | number,
-  sucursalId: string | number,
-  saleId: string | number
-) => apiClient.get(`${baseSucursal(clientId, sucursalId)}/sales/${saleId}`);
+export const getSaleById = (clientId: string | number, sucursalId: string | number, saleId: string | number) =>
+  apiClient.get(`${baseSucursal(clientId, sucursalId)}/sales/${saleId}`);
 
 // ────────────────────────────────────────────────────────────────
-/** DEVOLUCIONES de venta (POR SUCURSAL) */
+// DEVOLUCIONES
 // ────────────────────────────────────────────────────────────────
 export const createSaleReturn = (
   clientId: string | number,
   sucursalId: string | number,
-  returnData: {
-    saleId: number;
-    reason?: string;
-    items: { saleItemId: number; quantity: number }[];
-  }
+  returnData: { saleId: number; reason?: string; items: { saleItemId: number; quantity: number }[] }
 ) => apiClient.post(`${baseSucursal(clientId, sucursalId)}/returns`, returnData);
 
 export const getSaleReturns = (
@@ -216,49 +193,31 @@ export const getSaleReturns = (
 ) => apiClient.get(`${baseSucursal(clientId, sucursalId)}/returns`, { params });
 
 // ────────────────────────────────────────────────────────────────
-// EMPLEADOS (POR SUCURSAL)
+// EMPLEADOS
 // ────────────────────────────────────────────────────────────────
 export const getEmployees = (clientId: string | number, sucursalId: string | number) =>
   apiClient.get(`${baseSucursal(clientId, sucursalId)}/employees`);
 
-export const createEmployee = (
-  clientId: string | number,
-  sucursalId: string | number,
-  data: Record<string, any>
-) => apiClient.post(`${baseSucursal(clientId, sucursalId)}/employees`, data);
+export const createEmployee = (clientId: string | number, sucursalId: string | number, data: Record<string, any>) =>
+  apiClient.post(`${baseSucursal(clientId, sucursalId)}/employees`, data);
 
-export const updateEmployee = (
-  clientId: string | number,
-  sucursalId: string | number,
-  employeeId: string | number,
-  data: Record<string, any>
-) => apiClient.put(`${baseSucursal(clientId, sucursalId)}/employees/${employeeId}`, data);
+export const updateEmployee = (clientId: string | number, sucursalId: string | number, employeeId: string | number, data: Record<string, any>) =>
+  apiClient.put(`${baseSucursal(clientId, sucursalId)}/employees/${employeeId}`, data);
 
-export const deleteEmployee = (
-  clientId: string | number,
-  sucursalId: string | number,
-  employeeId: string | number
-) => apiClient.delete(`${baseSucursal(clientId, sucursalId)}/employees/${employeeId}`);
+export const deleteEmployee = (clientId: string | number, sucursalId: string | number, employeeId: string | number) =>
+  apiClient.delete(`${baseSucursal(clientId, sucursalId)}/employees/${employeeId}`);
 
 // ────────────────────────────────────────────────────────────────
-// HORAS TRABAJADAS / TARIFA (POR SUCURSAL)
+// HORAS TRABAJADAS / TARIFA
 // ────────────────────────────────────────────────────────────────
-export const addHoursWorked = (
-  clientId: string | number,
-  sucursalId: string | number,
-  employeeId: string | number,
-  body: { year: number; month: number; hours: number }
-) => apiClient.post(`${baseSucursal(clientId, sucursalId)}/employees/${employeeId}/hours-worked`, body);
+export const addHoursWorked = (clientId: string | number, sucursalId: string | number, employeeId: string | number, body: { year: number; month: number; hours: number }) =>
+  apiClient.post(`${baseSucursal(clientId, sucursalId)}/employees/${employeeId}/hours-worked`, body);
 
-export const setSalaryRate = (
-  clientId: string | number,
-  sucursalId: string | number,
-  employeeId: string | number,
-  body: { hourlyRate: number; effectiveFrom: string } // YYYY-MM-DD
-) => apiClient.post(`${baseSucursal(clientId, sucursalId)}/employees/${employeeId}/salary-rate`, body);
+export const setSalaryRate = (clientId: string | number, sucursalId: string | number, employeeId: string | number, body: { hourlyRate: number; effectiveFrom: string }) =>
+  apiClient.post(`${baseSucursal(clientId, sucursalId)}/employees/${employeeId}/salary-rate`, body);
 
 // ────────────────────────────────────────────────────────────────
-// CAJA REGISTRADORA (NIVEL CLIENTE – si moviste a sucursal, cambia a baseSucursal)
+// CAJA
 // ────────────────────────────────────────────────────────────────
 export const openCashSession = (clientId: string | number, initialBalance: number) =>
   apiClient.post(`${baseCliente(clientId)}/cash-session/open`, { initialBalance });
@@ -270,43 +229,23 @@ export const getActiveCashSession = (clientId: string | number) =>
   apiClient.get(`${baseCliente(clientId)}/cash-session/active`);
 
 // ────────────────────────────────────────────────────────────────
-// REPORTES — POR SUCURSAL (según tu ClientPanelController)
+// REPORTES POR SUCURSAL
 // ────────────────────────────────────────────────────────────────
-export const getDailySalesByDays = (
-  clientId: string | number,
-  sucursalId: string | number,
-  days = 30
-) =>
-  apiClient.get(`${baseSucursal(clientId, sucursalId)}/reports/daily-sales`, {
-    params: { days },
-  });
+export const getDailySalesByDays = (clientId: string | number, sucursalId: string | number, days = 30) =>
+  apiClient.get(`${baseSucursal(clientId, sucursalId)}/reports/daily-sales`, { params: { days } });
 
-export const getProfitabilityLastDays = (
-  clientId: string | number,
-  sucursalId: string | number,
-  days = 30
-) =>
-  apiClient.get(`${baseSucursal(clientId, sucursalId)}/reports/profitability`, {
-    params: { days },
-  });
+export const getProfitabilityLastDays = (clientId: string | number, sucursalId: string | number, days = 30) =>
+  apiClient.get(`${baseSucursal(clientId, sucursalId)}/reports/profitability`, { params: { days } });
 
-export const getSalesByEmployee = (
-  clientId: string | number,
-  sucursalId: string | number,
-  startDate: string,
-  endDate: string
-) =>
-  apiClient.get(`${baseSucursal(clientId, sucursalId)}/reports/sales-by-employee`, {
-    params: { startDate, endDate },
-  });
+export const getSalesByEmployee = (clientId: string | number, sucursalId: string | number, startDate: string, endDate: string) =>
+  apiClient.get(`${baseSucursal(clientId, sucursalId)}/reports/sales-by-employee`, { params: { startDate, endDate } });
 
 // ────────────────────────────────────────────────────────────────
-// REPORTES & FINANZAS — NIVEL CLIENTE (agregan TODAS las sucursales)
-// (según tu ReportesController)
+// REPORTES & FINANZAS — NIVEL CLIENTE
 // ────────────────────────────────────────────────────────────────
 interface DateRangeParamsClient {
-  from: string; // YYYY-MM-DD
-  to: string;   // YYYY-MM-DD
+  from: string;
+  to: string;
 }
 
 export const getEstadoResultados = (clientId: string | number, params: DateRangeParamsClient) =>
@@ -330,14 +269,107 @@ export const getCategories = (clientId: string | number) =>
 export const getFinanceMovements = (clientId: string | number, from: string, to: string) =>
   apiClient.get(`${baseCliente(clientId)}/finance/movements`, { params: { from, to } });
 
+// ────────────────────────────────────────────────────────────────
+// PROVEEDORES
+// ────────────────────────────────────────────────────────────────
+export type ProviderLite = {
+  id: number;
+  label: string;
+  active?: boolean;
+  leadTimeDays?: number | null;
+  minOrderQty?: number | null;
+  raw?: any;
+};
 
-export const getSucursalProviders = (clientId: string|number, sucursalId: string|number) =>
-  apiClient.get(`${baseSucursal(clientId, sucursalId)}/providers`);
+function _mapProvidersResponse(data: any): ProviderLite[] {
+  const arr = Array.isArray(data?.content) ? data.content : (Array.isArray(data) ? data : []);
+  return arr.map((x: any) => ({
+    id: Number(x.providerId ?? x.id),
+    label: String(x.name ?? x.nombre ?? x.razonSocial ?? 'Proveedor'),
+    active: x.active ?? true,
+    leadTimeDays: x.leadTimeDays ?? null,
+    minOrderQty: x.minOrderQty ?? null,
+    raw: x,
+  }));
+}
 
-export const linkProviderToBranch = (clientId: string|number, sucursalId: string|number, providerId: string|number) =>
+// Nivel cliente
+export const getProviders = (clientId: string | number) =>
+  apiClient.get(`${baseCliente(clientId)}/providers`);
+
+export const addProvider = (clientId: string | number, providerData: Record<string, any>) =>
+  apiClient.post(`${baseCliente(clientId)}/providers`, providerData);
+
+// Nivel sucursal
+export async function getSucursalProviders(clientId: string | number, sucursalId: string | number, params?: Record<string, any>): Promise<ProviderLite[]> {
+  const url = `${baseSucursal(clientId, sucursalId)}/providers`;
+  const res = await apiClient.get(url, { params });
+  return _mapProvidersResponse(res.data);
+}
+
+export const linkProviderToBranch = (clientId: string | number, sucursalId: string | number, providerId: number) =>
   apiClient.post(`${baseSucursal(clientId, sucursalId)}/providers/${providerId}`);
 
-export const unlinkProviderFromBranch = (clientId: string|number, sucursalId: string|number, providerId: string|number) =>
+export const unlinkProviderFromBranch = (clientId: string | number, sucursalId: string | number, providerId: number) =>
   apiClient.delete(`${baseSucursal(clientId, sucursalId)}/providers/${providerId}`);
+
+// ────────────────────────────────────────────────────────────────
+// SUGERENCIAS DE COMPRA
+// ────────────────────────────────────────────────────────────────
+export type SuggestionItem = {
+  productId: number;
+  productName: string;
+  currentStock: number;
+  lowStockThreshold: number;
+  suggestedQty: number;
+};
+
+export type SuggestionsResponse = {
+  providerId: number;
+  sucursalId: number;
+  onlyLowStock: boolean;
+  count: number;
+  items: SuggestionItem[];
+};
+
+export async function getPurchaseOrderSuggestions(clientId: string | number, sucursalId: string | number, providerId: number, opts?: { onlyLowStock?: boolean; limit?: number }): Promise<SuggestionsResponse> {
+  const params = {
+    providerId,
+    onlyLowStock: opts?.onlyLowStock ?? true,
+    ...(opts?.limit ? { limit: opts.limit } : {}),
+  };
+  const url = `${baseSucursal(clientId, sucursalId)}/purchase-orders/suggestions`;
+  const res = await apiClient.get(url, { params });
+  return res.data as SuggestionsResponse;
+}
+
+// ────────────────────────────────────────────────────────────────
+// ÓRDENES DE COMPRA
+// ────────────────────────────────────────────────────────────────
+export type PurchaseOrderCreateBody = {
+  providerId: number;
+  items: { productId: number; quantity: number; cost: number }[];
+};
+
+export type PurchaseOrderDto = {
+  id: number;
+  status: 'PENDING' | 'RECEIVED' | 'CANCELLED';
+  providerId: number;
+  sucursalId: number;
+  creationDate: string;
+  receptionDate?: string | null;
+};
+
+export async function createPurchaseOrder(clientId: string | number, sucursalId: string | number, body: PurchaseOrderCreateBody): Promise<PurchaseOrderDto> {
+  const url = `${baseSucursal(clientId, sucursalId)}/purchase-orders`;
+  const res = await apiClient.post(url, body);
+  return res.data as PurchaseOrderDto;
+}
+
+export async function receivePurchaseOrder(clientId: string | number, sucursalId: string | number, orderId: number | string): Promise<PurchaseOrderDto> {
+  const url = `${baseSucursal(clientId, sucursalId)}/purchase-orders/${orderId}/receive`;
+  const res = await apiClient.post(url);
+  return res.data as PurchaseOrderDto;
+}
 
 export default apiClient;

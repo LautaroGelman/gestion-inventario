@@ -1,4 +1,3 @@
-// backend/src/main/java/grupo5/gestion_inventario/service/ProviderService.java
 package grupo5.gestion_inventario.service;
 
 import grupo5.gestion_inventario.clientpanel.dto.ProviderCreateRequest;
@@ -33,8 +32,15 @@ public class ProviderService {
 
         Provider p = new Provider();
         p.setClient(client);
+
+        // mapeo completo
         p.setName(req.getName());
+        p.setContact(req.getContact());
+        p.setPhone(req.getPhone());
+        p.setEmail(req.getEmail());
         p.setAddress(req.getAddress());
+        p.setNotes(req.getNotes());
+
         p.setActive(true);
 
         return toDto(providerRepo.save(p));
@@ -44,7 +50,12 @@ public class ProviderService {
         return ProviderDto.builder()
                 .id(p.getId())
                 .name(p.getName())
+                .contact(p.getContact())
+                .phone(p.getPhone())
+                .email(p.getEmail())
                 .address(p.getAddress())
+                .notes(p.getNotes())
+                .active(p.isActive())
                 .build();
     }
 }
